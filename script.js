@@ -1,4 +1,19 @@
+// Winions Contract Address
+const WINIONS_CONTRACT = CONFIG.CONTRACT_ADDRESS;
+const ETHEREUM_MAINNET = CONFIG.CHAIN_ID;
+const DEVELOPMENT_MODE = CONFIG.DEVELOPMENT_MODE;
+const SKIP_VERIFICATION = CONFIG.SKIP_VERIFICATION;
+
+// Web3 Variables
+let provider = null;
+let signer = null;
+let userAddress = null;
 let selectedSchool = '';
+
+// ERC721 ABI (just the balanceOf function we need)
+const ERC721_ABI = [
+    "function balanceOf(address owner) view returns (uint256)"
+];
 
 const houseData = {
     'House of Havoc': { min: 66, max: 175, image: 'havoc.gif', rarity: 'COMMON', class: 'common-badge' },
@@ -17,6 +32,7 @@ const houseData = {
 };
 
 // DOM Elements
+const walletGate = document.getElementById('walletGate');
 const schoolButtons = document.querySelectorAll('.school-button');
 const schoolSelection = document.getElementById('schoolSelection');
 const diceRolling = document.getElementById('diceRolling');
@@ -30,6 +46,141 @@ const housePlaceholder = document.getElementById('housePlaceholder');
 const houseName = document.getElementById('houseName');
 const houseRarity = document.getElementById('houseRarity');
 const rollTotal = document.getElementById('rollTotal');
+
+// Wallet Gate Elements
+const connectButton = document.getElementById('connectButton');
+const walletStatus = document.getElementById('walletStatus');
+const verificationStatus = document.getElementById('verificationStatus');
+
+// Initialize Wallet Connection
+async function initWallet() {
+    connectButton.addEventListener('click', connectWallet);
+}
+
+// Connect Wallet
+async function connectWallet() {
+    try {
+        connectButton.disabled = true;
+        connectButton.textContent = 'CONNECTING...';
+        walletStatus.textContent = 'Opening wallet connection...';
+        
+        // Check if MetaMask or other Web3 provider exists
+        if (typeof window.ethereum !== 'undefined') {
+            // Request account access
+            const accounts = await window.ethereum.request({ 
+                method: 'eth_requestAccounts' 
+            });
+            
+            userAddress = accounts[0];
+            
+            // Create provider
+            provider = new ethers.BrowserProvider(window.ethereum);
+            signer = await provider.getSigner();
+            
+            // Show connected address
+            const shortAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+            walletStatus.textContent = `Connected: ${shortAddress}`;
+            
+            // Check network
+            const network = await provider.getNetwork();
+            if (Number(network.chainId) !== ETHEREUM_MAINNET) {
+                verificationStatus.className = 'verification-status error';
+                verificationStatus.innerHTML = '⚠️ Please switch to Ethereum Mainnet';
+                connectButton.disabled = false;
+                connectButton.textContent = 'CONNECT WALLET';
+                return;
+            }
+            
+            // Verify NFT ownership
+            await verifyNFTOwnership();
+            
+        } else {
+            throw new Error('No Web3 wallet found. Please install MetaMask or another Web3 wallet.');
+        }
+        
+    } catch (error) {
+        console.error('Wallet connection error:', error);
+        verificationStatus.className = 'verification-status error';
+        verificationStatus.innerHTML = `❌ ${error.message || 'Failed to connect wallet'}`;
+        connectButton.disabled = false;
+        connectButton.textContent = 'CONNECT WALLET';
+    }
+}
+
+// Verify NFT Ownership
+async function verifyNFTOwnership() {
+    try {
+        verificationStatus.className = 'verification-status checking';
+        verificationStatus.textContent = '🔍 Checking Winion ownership...';
+        
+        // DEVELOPMENT MODE BYPASS
+        if (DEVELOPMENT_MODE && SKIP_VERIFICATION) {
+            console.warn('⚠️ DEVELOPMENT MODE: Skipping NFT verification');
+            verificationStatus.className = 'verification-status success';
+            verificationStatus.innerHTML = `✅ [DEV MODE] Access granted without verification`;
+            setTimeout(() => {
+                grantAccess();
+            }, 1000);
+            return;
+        }
+        
+        // Create contract instance
+        const contract = new ethers.Contract(WINIONS_CONTRACT, ERC721_ABI, provider);
+        
+        // Check balance
+        const balance = await contract.balanceOf(userAddress);
+        const balanceNumber = Number(balance);
+        
+        if (balanceNumber > 0) {
+            // Success! They own Winions
+            verificationStatus.className = 'verification-status success';
+            verificationStatus.innerHTML = `✅ Verified! You own ${balanceNumber} Winion${balanceNumber > 1 ? 's' : ''}.<br>Granting access...`;
+            
+            // Grant access after 2 seconds
+            setTimeout(() => {
+                grantAccess();
+            }, 2000);
+            
+        } else {
+            // No Winions found
+            verificationStatus.className = 'verification-status error';
+            verificationStatus.innerHTML = `❌ No Winions found in your wallet.<br><a href="${CONFIG.MINT_URL}" target="_blank" class="mint-link">Mint a Winion to access the dice roller</a>`;
+            connectButton.disabled = false;
+            connectButton.textContent = 'TRY AGAIN';
+        }
+        
+    } catch (error) {
+        console.error('Verification error:', error);
+        verificationStatus.className = 'verification-status error';
+        verificationStatus.innerHTML = `❌ Error verifying ownership: ${error.message}<br>Please try again.`;
+        connectButton.disabled = false;
+        connectButton.textContent = 'TRY AGAIN';
+    }
+}
+
+// Grant Access to Dice Roller
+function grantAccess() {
+    walletGate.style.display = 'none';
+    schoolSelection.style.display = 'block';
+}
+
+// Listen for account changes
+if (typeof window.ethereum !== 'undefined') {
+    window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length === 0) {
+            // User disconnected wallet
+            location.reload();
+        } else {
+            // User switched accounts
+            location.reload();
+        }
+    });
+    
+    window.ethereum.on('chainChanged', () => {
+        // User switched networks
+        location.reload();
+    });
+}
 
 // School Selection
 schoolButtons.forEach(button => {
@@ -164,3 +315,6 @@ if (rollButton) {
 if (closeButton) {
     closeButton.addEventListener('click', resetGame);
 }
+
+// Initialize wallet on page load
+initWallet();
