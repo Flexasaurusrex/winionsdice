@@ -5,10 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Winions Dice Roller</title>
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- Web3 Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@web3modal/standalone@2.4.3/dist/index.umd.js"></script>
+    
+    <!-- Configuration -->
+    <script src="config.js"></script>
 </head>
 <body>
+    <!-- Wallet Connection Gate -->
+    <div class="container" id="walletGate">
+        <h1>WINIONS DICE ROLLER</h1>
+        <p class="subtitle">Connect your wallet to verify Winion ownership</p>
+        
+        <div class="gate-content">
+            <p class="gate-description">
+                Only Winion holders can access the dice roller. Connect your wallet to verify you own at least one Winion NFT.
+            </p>
+            
+            <div id="walletStatus" class="wallet-status"></div>
+            
+            <button class="connect-button" id="connectButton">
+                CONNECT WALLET
+            </button>
+            
+            <div id="verificationStatus" class="verification-status"></div>
+        </div>
+    </div>
+
     <!-- School Selection Screen -->
-    <div class="container" id="schoolSelection">
+    <div class="container" id="schoolSelection" style="display: none;">
         <h1>ROLL TO MINT NEW WINION</h1>
         <p class="subtitle">Roll one of the D66 dice below</p>
         
@@ -17,22 +44,22 @@
         </p>
 
         <div class="dice-row">
-            <img src="dice-anarchy.png" alt="Anarchy Dice" class="dice-image">
-            <img src="dice-mischief.png" alt="Mischief Dice" class="dice-image">
-            <img src="dice-luck.png" alt="Luck Dice" class="dice-image">
+            <img src="ORANGEDIE.png" alt="Anarchy Dice" class="dice-image">
+            <img src="BLUEDIE.png" alt="Mischief Dice" class="dice-image">
+            <img src="GREENDIE.png" alt="Luck Dice" class="dice-image">
         </div>
 
         <div class="button-row">
             <button class="school-button" data-school="anarchy">
-                <img src="icon-anarchy.png" alt="Anarchy Icon" class="button-icon">
+                <img src="ANARCHY.png" alt="Anarchy Icon" class="button-icon">
                 <span>ANARCHY</span>
             </button>
             <button class="school-button" data-school="mischief">
-                <img src="icon-mischief.png" alt="Mischief Icon" class="button-icon">
+                <img src="MISCHIEF.png" alt="Mischief Icon" class="button-icon">
                 <span>MISCHIEF</span>
             </button>
             <button class="school-button" data-school="luck">
-                <img src="icon-luck.png" alt="Luck Icon" class="button-icon">
+                <img src="LUCK.png" alt="Luck Icon" class="button-icon">
                 <span>LUCK</span>
             </button>
         </div>
