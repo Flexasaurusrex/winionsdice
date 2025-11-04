@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winions Dice Roller - 66d6</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000000;
+            color: #ff1a1a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Grainy Static Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.08;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='3.5' numOctaves='6' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            animation: grain 0.15s steps(10) infinite;
+        }
+
+        @keyframes grain {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-1%, -1%); }
+            20% { transform: translate(1%, 1%); }
+            30% { transform: translate(-2%, 0); }
+            40% { transform: translate(2%, -2%); }
+            50% { transform: translate(-1%, 2%); }
+            60% { transform: translate(1%, 0); }
+            70% { transform: translate(0, 1%); }
+            80% { transform: translate(-2%, -1%); }
+            90% { transform: translate(2%, 1%); }
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #ff1a1a;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 0 40px rgba(255, 26, 26, 0.6);
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 10px;
+            color: #ff1a1a;
+            text-shadow: 0 0 20px rgba(255, 26, 26, 0.8);
+            letter-spacing: 4px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 40px;
+            color: #dd0000;
+        }
+
+        .dice-display {
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            gap: 8px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #ff1a1a;
+            border-radius: 5px;
+            min-height: 250px;
+        }
+
+        .die {
+            aspect-ratio: 1;
+            background: #1a1a1a;
+            border: 2px solid #ff1a1a;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #ff1a1a;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 26, 26, 0.3);
+        }
+
+        .die.rolling {
+            animation: diceRoll 0.5s ease-in-out;
+            background: #2a0000;
+        }
+
+        @keyframes diceRoll {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(90deg) scale(1.1); }
+            50% { transform: rotate(180deg) scale(0.9); }
+            75% { transform: rotate(270deg) scale(1.1); }
+        }
+
+        .controls {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .roll-button {
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid #ff1a1a;
+            color: #ffffff;
+            padding: 20px 60px;
+            font-size: 28px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            box-shadow: 0 0 20px rgba(255, 26, 26, 0.4),
+                        inset 0 0 20px rgba(255, 26, 26, 0.1);
+        }
+
+        .roll-button:hover:not(:disabled) {
+            background: rgba(255, 26, 26, 0.2);
+            box-shadow: 0 0 40px rgba(255, 26, 26, 0.8),
+                        inset 0 0 30px rgba(255, 26, 26, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .roll-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .dice-total {
+            margin-top: 30px;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid #ff1a1a;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(255, 26, 26, 0.4);
+        }
+
+        .total-label {
+            font-size: 20px;
+            color: #ff1a1a;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .total-value {
+            font-size: 72px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 20px rgba(255, 26, 26, 1);
+            display: block;
+        }
+
+        .total-range {
+            display: block;
+            font-size: 16px;
+            color: #999;
+            margin-top: 10px;
+        }
+
+        /* Modal Popup */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: #000000;
+            border: 4px solid #ff1a1a;
+            border-radius: 15px;
+            padding: 50px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(255, 26, 26, 0.8);
+            animation: slideUp 0.5s ease;
+            position: relative;
+        }
+
+        @keyframes slideUp {
+            from { 
+                transform: translateY(100px) scale(0.9);
+                opacity: 0;
+            }
+            to { 
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-content h2 {
+            font-size: 36px;
+            color: #ff1a1a;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 26, 26, 0.8);
+            letter-spacing: 3px;
+        }
+
+        .modal-content h3 {
+            font-size: 28px;
+            color: #ffffff;
+            margin: 20px 0;
+        }
+
+        .house-image {
+            width: 350px;
+            height: 350px;
+            object-fit: contain;
+            border: 4px solid #ff1a1a;
+            border-radius: 10px;
+            margin: 20px auto;
+            box-shadow: 0 0 40px rgba(255, 26, 26, 0.6);
+            background: #000000;
+        }
+
+        .rarity-badge {
+            display: inline-block;
+            padding: 10px 25px;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0;
+            letter-spacing: 2px;
+        }
+
+        .common-badge { background: #4a4a4a; color: #ffffff; }
+        .uncommon-badge { background: #2d8a2d; color: #ffffff; }
+        .rare-badge { background: #2d5a8a; color: #ffffff; }
+        .ultra-rare-badge { background: #8a2d8a; color: #ffffff; }
+        .mythic-badge { background: #8a2d2d; color: #ffffff; }
+
+        .close-button {
+            background: rgba(255, 26, 26, 0.2);
+            border: 2px solid #ff1a1a;
+            color: #ffffff;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .close-button:hover {
+            background: rgba(255, 26, 26, 0.4);
+            box-shadow: 0 0 20px rgba(255, 26, 26, 0.6);
+            transform: scale(1.05);
+        }
+
+        .your-roll {
+            font-size: 18px;
+            color: #dd0000;
+            margin: 15px 0;
+        }
+
+        .note {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 26, 26, 0.1);
+            border: 1px solid #ff1a1a;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #dd0000;
+        }
+
+        /* School Selection Styles */
+        .school-description {
+            text-align: center;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #dd0000;
+            margin: 30px auto 50px;
+            max-width: 900px;
+            padding: 20px;
+            background: rgba(255, 26, 26, 0.05);
+            border: 1px solid #ff1a1a;
+            border-radius: 5px;
+        }
+
+        .dice-options {
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            margin: 60px 0;
+        }
+
+        .d66-die {
+            width: 180px;
+            height: 180px;
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .d66-die:hover {
+            transform: translateY(-10px);
+        }
+
+        .die-face {
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+            border: 3px solid;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .bronze .die-face {
+            border-color: #cd7f32;
+            box-shadow: 0 0 40px rgba(205, 127, 50, 0.6),
+                        inset 0 0 30px rgba(205, 127, 50, 0.2);
+        }
+
+        .blue .die-face {
+            border-color: #4169e1;
+            box-shadow: 0 0 40px rgba(65, 105, 225, 0.6),
+                        inset 0 0 30px rgba(65, 105, 225, 0.2);
+        }
+
+        .green .die-face {
+            border-color: #32cd32;
+            box-shadow: 0 0 40px rgba(50, 205, 50, 0.6),
+                        inset 0 0 30px rgba(50, 205, 50, 0.2);
+        }
+
+        .die-number {
+            font-size: 72px;
+            font-weight: bold;
+        }
+
+        .bronze .die-number {
+            color: #cd7f32;
+            text-shadow: 0 0 20px rgba(205, 127, 50, 1);
+        }
+
+        .blue .die-number {
+            color: #4169e1;
+            text-shadow: 0 0 20px rgba(65, 105, 225, 1);
+        }
+
+        .green .die-number {
+            color: #32cd32;
+            text-shadow: 0 0 20px rgba(50, 205, 50, 1);
+        }
+
+        /* Random numbers on die face */
+        .die-face::before,
+        .die-face::after {
+            position: absolute;
+            font-size: 18px;
+            font-weight: bold;
+            opacity: 0.6;
+        }
+
+        .school-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 50px;
+        }
+
+        .school-button {
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid;
+            padding: 20px 50px;
+            font-size: 24px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #ffffff;
+        }
+
+        .anarchy-btn {
+            border-color: #cd7f32;
+            box-shadow: 0 0 20px rgba(205, 127, 50, 0.4);
+        }
+
+        .anarchy-btn:hover {
+            background: rgba(205, 127, 50, 0.2);
+            box-shadow: 0 0 40px rgba(205, 127, 50, 0.8);
+            transform: translateY(-3px);
+        }
+
+        .mischief-btn {
+            border-color: #4169e1;
+            box-shadow: 0 0 20px rgba(65, 105, 225, 0.4);
+        }
+
+        .mischief-btn:hover {
+            background: rgba(65, 105, 225, 0.2);
+            box-shadow: 0 0 40px rgba(65, 105, 225, 0.8);
+            transform: translateY(-3px);
+        }
+
+        .luck-btn {
+            border-color: #32cd32;
+            box-shadow: 0 0 20px rgba(50, 205, 50, 0.4);
+        }
+
+        .luck-btn:hover {
+            background: rgba(50, 205, 50, 0.2);
+            box-shadow: 0 0 40px rgba(50, 205, 50, 0.8);
+            transform: translateY(-3px);
+        }
+
+        .school-icon {
+            font-size: 32px;
+        }
+
+        .school-chosen {
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .school-anarchy { color: #cd7f32 !important; }
+        .school-mischief { color: #4169e1 !important; }
+        .school-luck { color: #32cd32 !important; }
+
+        /* Themed dice colors based on school */
+        body.theme-anarchy .die {
+            border-color: #cd7f32;
+            color: #cd7f32;
+        }
+
+        body.theme-mischief .die {
+            border-color: #4169e1;
+            color: #4169e1;
+        }
+
+        body.theme-luck .die {
+            border-color: #32cd32;
+            color: #32cd32;
+        }
+
+        body.theme-anarchy .roll-button,
+        body.theme-anarchy .dice-total {
+            border-color: #cd7f32;
+            box-shadow: 0 0 20px rgba(205, 127, 50, 0.4);
+        }
+
+        body.theme-mischief .roll-button,
+        body.theme-mischief .dice-total {
+            border-color: #4169e1;
+            box-shadow: 0 0 20px rgba(65, 105, 225, 0.4);
+        }
+
+        body.theme-luck .roll-button,
+        body.theme-luck .dice-total {
+            border-color: #32cd32;
+            box-shadow: 0 0 20px rgba(50, 205, 50, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .dice-options {
+                flex-direction: column;
+                align-items: center;
+                gap: 40px;
+            }
+
+            .school-buttons {
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+            }
+
+            .school-button {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+
+            .d66-die {
+                width: 150px;
+                height: 150px;
+            }
+
+            .die-number {
+                font-size: 60px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dice-display {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 5px;
+                padding: 10px;
+            }
+
+            .die {
+                font-size: 14px;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+
+            .roll-button {
+                padding: 15px 40px;
+                font-size: 20px;
+            }
+
+            .total-value {
+                font-size: 48px;
+            }
+
+            .house-image {
+                width: 250px;
+                height: 250px;
+            }
+
+            .modal-content {
+                padding: 30px 20px;
+            }
+
+            .modal-content h2 {
+                font-size: 24px;
+            }
+
+            .modal-content h3 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- School Selection Screen -->
+    <div class="container" id="schoolSelection">
+        <h1>ROLL TO MINT NEW WINION</h1>
+        <p class="subtitle">Roll one of the D66 dice below</p>
+        
+        <div class="school-description">
+            The Winions value three different schools of mayhem which determine the life schemes of each Winion. Almost like choosing a religion. Decide for this Winion you are summoning to which school they will belong. Choose wisely.
+        </div>
+
+        <div class="dice-options">
+            <div class="d66-die bronze" data-school="anarchy">
+                <div class="die-face">
+                    <div class="die-number">30</div>
+                </div>
+            </div>
+            <div class="d66-die blue" data-school="mischief">
+                <div class="die-face">
+                    <div class="die-number">30</div>
+                </div>
+            </div>
+            <div class="d66-die green" data-school="luck">
+                <div class="die-face">
+                    <div class="die-number">30</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="school-buttons">
+            <button class="school-button anarchy-btn" data-school="anarchy">
+                <span class="school-icon">🔥</span>
+                <span class="school-name">ANARCHY</span>
+            </button>
+            <button class="school-button mischief-btn" data-school="mischief">
+                <span class="school-icon">😈</span>
+                <span class="school-name">MISCHIEF</span>
+            </button>
+            <button class="school-button luck-btn" data-school="luck">
+                <span class="school-icon">🍀</span>
+                <span class="school-name">LUCK</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Dice Rolling Screen -->
+    <div class="container" id="diceRolling" style="display: none;">
+        <h1>WINIONS DICE ROLLER</h1>
+        <p class="subtitle school-chosen">School of <span id="chosenSchool"></span></p>
+
+        <div class="dice-display" id="diceDisplay"></div>
+
+        <div class="controls">
+            <button class="roll-button" id="rollButton">🎲 ROLL THE DICE 🎲</button>
+        </div>
+
+        <div class="dice-total">
+            <span class="total-label">YOUR TOTAL</span>
+            <span class="total-value" id="totalValue">0</span>
+            <span class="total-range">Range: 66-396</span>
+        </div>
+
+        <div class="note">
+            <strong>Note:</strong> This demo uses placeholder text for house images. 
+            When integrated into your site, it will display the actual Winions GIFs!
+        </div>
+    </div>
+
+    <!-- Modal Popup -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2>YOU HAVE BEEN SORTED INTO...</h2>
+            <div style="width: 350px; height: 350px; margin: 20px auto; background: #1a1a1a; border: 4px solid #ff1a1a; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #ff1a1a;">
+                <div id="housePlaceholder"></div>
+            </div>
+            <h3 id="houseName"></h3>
+            <p class="your-roll">Your Roll: <strong id="rollTotal"></strong></p>
+            <div class="rarity-badge" id="houseRarity"></div>
+            <br>
+            <button class="close-button" id="closeButton">ROLL AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        let selectedSchool = '';
+
+        const houseData = {
+            'House of Havoc': { min: 66, max: 175, image: 'HAVOC', rarity: 'COMMON', class: 'common-badge' },
+            'House of Misfits': { min: 176, max: 230, image: 'MISFITS', rarity: 'COMMON', class: 'common-badge' },
+            'House of Frog': { min: 231, max: 263, image: 'FROG', rarity: 'UNCOMMON', class: 'uncommon-badge' },
+            'House of Theory': { min: 264, max: 290, image: 'THEORY', rarity: 'UNCOMMON', class: 'uncommon-badge' },
+            'House of Spectrum': { min: 291, max: 312, image: 'SPECTRUM', rarity: 'UNCOMMON', class: 'uncommon-badge' },
+            'House of Clay': { min: 313, max: 329, image: 'CLAY', rarity: 'UNCOMMON', class: 'uncommon-badge' },
+            'House of Stencil': { min: 330, max: 345, image: 'STENCIL', rarity: 'UNCOMMON', class: 'uncommon-badge' },
+            'House of Royal': { min: 346, max: 356, image: 'ROYAL', rarity: 'RARE', class: 'rare-badge' },
+            'House of Shadows': { min: 357, max: 367, image: 'SHADOWS', rarity: 'RARE', class: 'rare-badge' },
+            'House of Hellish': { min: 368, max: 378, image: 'HELLISH', rarity: 'RARE', class: 'rare-badge' },
+            'House of Hologram': { min: 379, max: 389, image: 'HOLOGRAM', rarity: 'ULTRA RARE', class: 'ultra-rare-badge' },
+            'House of Gold': { min: 390, max: 394, image: 'GOLD', rarity: 'ULTRA RARE', class: 'ultra-rare-badge' },
+            'House of Death': { min: 395, max: 396, image: 'DEATH', rarity: 'MYTHIC', class: 'mythic-badge' }
+        };
+
+        // School Selection
+        const schoolButtons = document.querySelectorAll('.school-button');
+        const schoolSelection = document.getElementById('schoolSelection');
+        const diceRolling = document.getElementById('diceRolling');
+        const chosenSchoolSpan = document.getElementById('chosenSchool');
+
+        schoolButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                selectedSchool = button.dataset.school;
+                
+                // Update the chosen school display
+                chosenSchoolSpan.textContent = selectedSchool.toUpperCase();
+                chosenSchoolSpan.className = `school-${selectedSchool}`;
+                
+                // Apply theme to body
+                document.body.className = `theme-${selectedSchool}`;
+                
+                // Transition to dice rolling screen
+                schoolSelection.style.display = 'none';
+                diceRolling.style.display = 'block';
+                
+                // Initialize dice
+                createDice();
+            });
+        });
+
+        const rollButton = document.getElementById('rollButton');
+        const closeButton = document.getElementById('closeButton');
+        const diceDisplay = document.getElementById('diceDisplay');
+        const totalValue = document.getElementById('totalValue');
+        const modal = document.getElementById('modal');
+        const housePlaceholder = document.getElementById('housePlaceholder');
+        const houseName = document.getElementById('houseName');
+        const houseRarity = document.getElementById('houseRarity');
+        const rollTotal = document.getElementById('rollTotal');
+
+        function createDice() {
+            diceDisplay.innerHTML = '';
+            for (let i = 0; i < 66; i++) {
+                const die = document.createElement('div');
+                die.className = 'die';
+                die.textContent = '?';
+                diceDisplay.appendChild(die);
+            }
+        }
+
+        function rollDice() {
+            rollButton.disabled = true;
+            modal.classList.remove('show');
+            
+            const dice = document.querySelectorAll('.die');
+            const rolls = [];
+            
+            dice.forEach((die, index) => {
+                die.classList.add('rolling');
+                
+                setTimeout(() => {
+                    const roll = Math.floor(Math.random() * 6) + 1;
+                    rolls.push(roll);
+                    die.textContent = roll;
+                    die.classList.remove('rolling');
+                    
+                    if (index === 65) {
+                        setTimeout(() => {
+                            calculateTotal(rolls);
+                        }, 500);
+                    }
+                }, index * 30);
+            });
+        }
+
+        function calculateTotal(rolls) {
+            const total = rolls.reduce((sum, roll) => sum + roll, 0);
+            
+            let currentTotal = 0;
+            const increment = Math.ceil(total / 50);
+            const counter = setInterval(() => {
+                currentTotal += increment;
+                if (currentTotal >= total) {
+                    currentTotal = total;
+                    clearInterval(counter);
+                    setTimeout(() => {
+                        revealHouse(total);
+                    }, 800);
+                }
+                totalValue.textContent = currentTotal;
+            }, 20);
+        }
+
+        function revealHouse(total) {
+            for (const [name, data] of Object.entries(houseData)) {
+                if (total >= data.min && total <= data.max) {
+                    housePlaceholder.textContent = data.image;
+                    houseName.textContent = name;
+                    houseRarity.textContent = data.rarity;
+                    houseRarity.className = `rarity-badge ${data.class}`;
+                    rollTotal.textContent = total;
+                    
+                    // Add school info to modal
+                    const schoolInfo = document.createElement('p');
+                    schoolInfo.style.cssText = 'margin-top: 10px; font-size: 16px; color: #999;';
+                    schoolInfo.textContent = `School of ${selectedSchool.toUpperCase()}`;
+                    
+                    // Insert before rarity badge if not already there
+                    if (!document.querySelector('.school-info')) {
+                        schoolInfo.className = 'school-info';
+                        houseRarity.parentElement.insertBefore(schoolInfo, houseRarity);
+                    }
+                    
+                    break;
+                }
+            }
+            
+            modal.classList.add('show');
+            rollButton.disabled = false;
+        }
+
+        function resetGame() {
+            modal.classList.remove('show');
+            
+            // Remove school info if it exists
+            const schoolInfo = document.querySelector('.school-info');
+            if (schoolInfo) schoolInfo.remove();
+            
+            // Go back to school selection
+            diceRolling.style.display = 'none';
+            schoolSelection.style.display = 'block';
+            totalValue.textContent = '0';
+            document.body.className = '';
+            selectedSchool = '';
+        }
+
+        if (rollButton) {
+            rollButton.addEventListener('click', rollDice);
+        }
+        if (closeButton) {
+            closeButton.addEventListener('click', resetGame);
+        }
+    </script>
+</body>
+</html>

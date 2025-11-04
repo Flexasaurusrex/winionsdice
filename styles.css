@@ -1,0 +1,389 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background: #000000;
+    color: #ff1a1a;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    width: 100%;
+    background: #000000;
+    border: 3px solid #ff1a1a;
+    border-radius: 10px;
+    padding: 60px;
+}
+
+/* School Selection Screen */
+h1 {
+    text-align: center;
+    font-size: 48px;
+    margin-bottom: 20px;
+    color: #ff1a1a;
+    letter-spacing: 4px;
+    font-weight: normal;
+}
+
+.subtitle {
+    text-align: center;
+    font-size: 20px;
+    margin-bottom: 40px;
+    color: #cc0000;
+}
+
+.description {
+    text-align: left;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #ff1a1a;
+    margin: 0 auto 60px;
+    max-width: 1000px;
+}
+
+.dice-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 80px;
+    margin: 60px 0;
+}
+
+.dice-image {
+    width: 220px;
+    height: 220px;
+    object-fit: contain;
+}
+
+.button-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    margin-top: 60px;
+}
+
+.school-button {
+    background: transparent;
+    border: 3px solid #ff1a1a;
+    color: #ff1a1a;
+    padding: 20px 50px;
+    font-size: 24px;
+    font-weight: normal;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.school-button:hover {
+    background: rgba(255, 26, 26, 0.1);
+    transform: translateY(-2px);
+}
+
+.button-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+/* Dice Rolling Screen */
+.dice-display {
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    gap: 8px;
+    margin: 40px 0 30px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid #ff1a1a;
+    border-radius: 5px;
+    min-height: 250px;
+}
+
+.die {
+    aspect-ratio: 1;
+    background: #1a1a1a;
+    border: 2px solid #ff1a1a;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    color: #ff1a1a;
+    transition: all 0.3s ease;
+}
+
+.die.rolling {
+    animation: diceRoll 0.5s ease-in-out;
+    background: #2a0000;
+}
+
+@keyframes diceRoll {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(90deg) scale(1.1); }
+    50% { transform: rotate(180deg) scale(0.9); }
+    75% { transform: rotate(270deg) scale(1.1); }
+}
+
+.controls {
+    text-align: center;
+    margin: 30px 0;
+}
+
+.roll-button {
+    background: rgba(0, 0, 0, 0.8);
+    border: 3px solid #ff1a1a;
+    color: #ffffff;
+    padding: 20px 60px;
+    font-size: 28px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+}
+
+.roll-button:hover:not(:disabled) {
+    background: rgba(255, 26, 26, 0.2);
+    transform: translateY(-3px);
+}
+
+.roll-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.dice-total {
+    margin-top: 30px;
+    padding: 30px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 3px solid #ff1a1a;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.total-label {
+    font-size: 20px;
+    color: #ff1a1a;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.total-value {
+    font-size: 72px;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 0 0 20px rgba(255, 26, 26, 1);
+    display: block;
+}
+
+.total-range {
+    display: block;
+    font-size: 16px;
+    color: #999;
+    margin-top: 10px;
+}
+
+.school-chosen {
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+/* Modal Popup */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal.show {
+    display: flex;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: #000000;
+    border: 4px solid #ff1a1a;
+    border-radius: 15px;
+    padding: 50px;
+    max-width: 600px;
+    width: 90%;
+    text-align: center;
+    animation: slideUp 0.5s ease;
+}
+
+@keyframes slideUp {
+    from { 
+        transform: translateY(100px) scale(0.9);
+        opacity: 0;
+    }
+    to { 
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.modal-content h2 {
+    font-size: 36px;
+    color: #ff1a1a;
+    margin-bottom: 20px;
+    letter-spacing: 3px;
+}
+
+.modal-content h3 {
+    font-size: 28px;
+    color: #ffffff;
+    margin: 20px 0;
+}
+
+.house-placeholder {
+    width: 350px;
+    height: 350px;
+    margin: 20px auto;
+    background: #1a1a1a;
+    border: 4px solid #ff1a1a;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #ff1a1a;
+}
+
+.rarity-badge {
+    display: inline-block;
+    padding: 10px 25px;
+    border-radius: 5px;
+    font-size: 18px;
+    font-weight: bold;
+    margin: 20px 0;
+    letter-spacing: 2px;
+}
+
+.common-badge { background: #4a4a4a; color: #ffffff; }
+.uncommon-badge { background: #2d8a2d; color: #ffffff; }
+.rare-badge { background: #2d5a8a; color: #ffffff; }
+.ultra-rare-badge { background: #8a2d8a; color: #ffffff; }
+.mythic-badge { background: #8a2d2d; color: #ffffff; }
+
+.close-button {
+    background: rgba(255, 26, 26, 0.2);
+    border: 2px solid #ff1a1a;
+    color: #ffffff;
+    padding: 15px 40px;
+    font-size: 20px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    margin-top: 30px;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.close-button:hover {
+    background: rgba(255, 26, 26, 0.4);
+    transform: scale(1.05);
+}
+
+.your-roll {
+    font-size: 18px;
+    color: #cc0000;
+    margin: 15px 0;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding: 30px 20px;
+    }
+
+    h1 {
+        font-size: 32px;
+    }
+
+    .dice-row {
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .dice-image {
+        width: 180px;
+        height: 180px;
+    }
+
+    .button-row {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .school-button {
+        width: 100%;
+        max-width: 350px;
+        justify-content: center;
+        padding: 20px 30px;
+    }
+
+    .dice-display {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 5px;
+        padding: 10px;
+    }
+
+    .die {
+        font-size: 14px;
+    }
+
+    .roll-button {
+        padding: 15px 40px;
+        font-size: 20px;
+    }
+
+    .total-value {
+        font-size: 48px;
+    }
+
+    .house-placeholder {
+        width: 250px;
+        height: 250px;
+    }
+
+    .modal-content {
+        padding: 30px 20px;
+    }
+
+    .modal-content h2 {
+        font-size: 24px;
+    }
+
+    .modal-content h3 {
+        font-size: 20px;
+    }
+}

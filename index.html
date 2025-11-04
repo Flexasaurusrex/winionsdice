@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winions Dice Roller</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- School Selection Screen -->
+    <div class="container" id="schoolSelection">
+        <h1>ROLL TO MINT NEW WINION</h1>
+        <p class="subtitle">Roll one of the D66 dice below</p>
+        
+        <p class="description">
+            the winions value three different schools of mahyem which determine the life schemes of each winion. almost like choosing a religion. decide for this winion you are summoning to which school they will belong. choose wisly.
+        </p>
+
+        <div class="dice-row">
+            <img src="dice-anarchy.png" alt="Anarchy Dice" class="dice-image">
+            <img src="dice-mischief.png" alt="Mischief Dice" class="dice-image">
+            <img src="dice-luck.png" alt="Luck Dice" class="dice-image">
+        </div>
+
+        <div class="button-row">
+            <button class="school-button" data-school="anarchy">
+                <img src="icon-anarchy.png" alt="Anarchy Icon" class="button-icon">
+                <span>ANARCHY</span>
+            </button>
+            <button class="school-button" data-school="mischief">
+                <img src="icon-mischief.png" alt="Mischief Icon" class="button-icon">
+                <span>MISCHIEF</span>
+            </button>
+            <button class="school-button" data-school="luck">
+                <img src="icon-luck.png" alt="Luck Icon" class="button-icon">
+                <span>LUCK</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Dice Rolling Screen -->
+    <div class="container" id="diceRolling" style="display: none;">
+        <h1>ROLL FOR YOUR HOUSE</h1>
+        <p class="subtitle school-chosen">School of <span id="chosenSchool"></span></p>
+
+        <div class="dice-display" id="diceDisplay"></div>
+
+        <div class="controls">
+            <button class="roll-button" id="rollButton">🎲 ROLL THE DICE 🎲</button>
+        </div>
+
+        <div class="dice-total">
+            <span class="total-label">YOUR TOTAL</span>
+            <span class="total-value" id="totalValue">0</span>
+            <span class="total-range">Range: 66-396</span>
+        </div>
+    </div>
+
+    <!-- Modal Popup -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2>YOU HAVE BEEN SORTED INTO...</h2>
+            <div class="house-placeholder" id="housePlaceholder"></div>
+            <h3 id="houseName"></h3>
+            <p class="your-roll">Your Roll: <strong id="rollTotal"></strong></p>
+            <div class="rarity-badge" id="houseRarity"></div>
+            <br>
+            <button class="close-button" id="closeButton">ROLL AGAIN</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
