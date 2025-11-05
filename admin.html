@@ -1,644 +1,514 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Winions Distribution - Admin Panel</title>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.0/dist/ethers.umd.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+// Winions Admin Panel Script
+// Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
+
+let provider;
+let signer;
+let adminAddress;
+let distributionContract;
+
+// Initialize
+window.addEventListener('load', () => {
+    document.getElementById('connectAdminBtn').addEventListener('click', connectAdmin);
+});
+
+// Log Activity
+function log(message, type = 'info') {
+    const logDiv = document.getElementById('activityLog');
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    logDiv.insertBefore(entry, logDiv.firstChild);
+    
+    // Keep only last 50 entries
+    while (logDiv.children.length > 50) {
+        logDiv.removeChild(logDiv.lastChild);
+    }
+}
+
+// Connect Admin Wallet
+async function connectAdmin() {
+    try {
+        if (typeof window.ethereum === 'undefined') {
+            alert('Please install MetaMask!');
+            return;
         }
 
-        body {
-            font-family: 'Courier New', monospace;
-            background: #000000;
-            color: #ff1a1a;
-            padding: 20px;
-            line-height: 1.6;
+        log('Connecting admin wallet...', 'info');
+
+        const accounts = await window.ethereum.request({ 
+            method: 'eth_requestAccounts' 
+        });
+        
+        adminAddress = accounts[0];
+        
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        
+        distributionContract = new ethers.Contract(
+            CONFIG.DISTRIBUTION_CONTRACT,
+            DISTRIBUTION_CONTRACT_ABI,
+            signer
+        );
+        
+        // Check if user is owner
+        const owner = await distributionContract.owner();
+        
+        if (adminAddress.toLowerCase() !== owner.toLowerCase()) {
+            throw new Error('You are not the contract owner!');
         }
+        
+        log('Admin wallet connected successfully', 'success');
+        
+        // Show admin panel
+        document.getElementById('adminGate').style.display = 'none';
+        document.getElementById('adminPanel').style.display = 'block';
+        
+        // Load initial status
+        await refreshStatus();
+        await loadPrices();
+        
+    } catch (error) {
+        console.error('Admin connection error:', error);
+        document.getElementById('adminError').textContent = error.message;
+        log(`Connection error: ${error.message}`, 'error');
+    }
+}
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+// Refresh Status
+async function refreshStatus() {
+    try {
+        log('Refreshing status...', 'info');
+        
+        // Distribution status
+        const isActive = await distributionContract.distributionActive();
+        const statusEl = document.getElementById('distributionStatus');
+        statusEl.textContent = isActive ? 'ACTIVE' : 'INACTIVE';
+        statusEl.className = `status-value ${isActive ? 'active' : 'inactive'}`;
+        
+        // Contract balance
+        const balance = await provider.getBalance(CONFIG.DISTRIBUTION_CONTRACT);
+        document.getElementById('contractBalance').textContent = 
+            `${ethers.formatEther(balance)} ETH`;
+        
+        // Admin wallet
+        document.getElementById('adminWallet').textContent = 
+            `${adminAddress.slice(0, 6)}...${adminAddress.slice(-4)}`;
+        
+        // Count total NFTs
+        let totalNFTs = 0;
+        const houses = await distributionContract.getAllHouses();
+        for (const house of houses) {
+            const count = await distributionContract.getHouseInventoryCount(house);
+            totalNFTs += Number(count);
         }
+        document.getElementById('totalNFTs').textContent = totalNFTs;
+        
+        log('Status refreshed', 'success');
+        
+    } catch (error) {
+        console.error('Refresh error:', error);
+        log(`Refresh error: ${error.message}`, 'error');
+    }
+}
 
-        h1 {
-            font-size: 42px;
-            color: #ff1a1a;
-            text-align: center;
-            margin-bottom: 10px;
-            text-shadow: 0 0 20px rgba(255, 26, 26, 0.8);
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #dd0000;
-            margin-bottom: 30px;
-        }
-
-        .section {
-            background: rgba(0, 0, 0, 0.9);
-            border: 3px solid #ff1a1a;
-            border-radius: 10px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 0 40px rgba(255, 26, 26, 0.3);
-        }
-
-        .section h2 {
-            color: #ffffff;
-            margin-bottom: 20px;
-            font-size: 24px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .status {
-            padding: 15px;
-            background: rgba(255, 26, 26, 0.1);
-            border: 2px solid #ff1a1a;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-
-        .status.connected {
-            border-color: #00ff00;
-            background: rgba(0, 255, 0, 0.1);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            color: #ff1a1a;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-
-        input, select, textarea {
-            width: 100%;
-            background: #1a1a1a;
-            border: 2px solid #ff1a1a;
-            color: #ffffff;
-            padding: 12px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            border-radius: 5px;
-        }
-
-        textarea {
-            min-height: 120px;
-            resize: vertical;
-        }
-
-        button {
-            background: rgba(255, 26, 26, 0.2);
-            border: 2px solid #ff1a1a;
-            color: #ffffff;
-            padding: 15px 30px;
-            font-size: 16px;
-            font-weight: bold;
-            font-family: 'Courier New', monospace;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: all 0.3s ease;
-            width: 100%;
-            margin-top: 10px;
-        }
-
-        button:hover:not(:disabled) {
-            background: rgba(255, 26, 26, 0.4);
-            box-shadow: 0 0 20px rgba(255, 26, 26, 0.6);
-            transform: translateY(-2px);
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .success {
-            background: rgba(0, 255, 0, 0.2);
-            border: 2px solid #00ff00;
-            color: #00ff00;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 15px;
-        }
-
-        .error {
-            background: rgba(255, 0, 0, 0.2);
-            border: 2px solid #ff0000;
-            color: #ff0000;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 15px;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .info-item {
-            background: rgba(255, 26, 26, 0.1);
-            border: 1px solid #ff1a1a;
-            padding: 15px;
-            border-radius: 5px;
-        }
-
-        .info-label {
-            color: #999;
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-
-        .info-value {
-            color: #00ff00;
-            font-size: 18px;
-            font-weight: bold;
-        }
-
-        .help-text {
-            color: #999;
-            font-size: 12px;
-            margin-top: 5px;
-        }
-
-        .button-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🔐 WINIONS ADMIN PANEL</h1>
-        <p class="subtitle">Manage your distribution contract</p>
-
-        <!-- Wallet Connection -->
-        <div class="section">
-            <h2>👛 Wallet Connection</h2>
-            <div class="status" id="walletStatus">
-                <div>Status: <strong>Not Connected</strong></div>
-            </div>
-            <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
-        </div>
-
-        <!-- Contract Info -->
-        <div class="section" id="contractInfo" style="display: none;">
-            <h2>📊 Contract Information</h2>
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Single Roll Price</div>
-                    <div class="info-value" id="singlePrice">-</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">3-Roll Pack Price</div>
-                    <div class="info-value" id="threePrice">-</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">5-Roll Pack Price</div>
-                    <div class="info-value" id="fivePrice">-</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Distribution Active</div>
-                    <div class="info-value" id="activeStatus">-</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Contract Balance</div>
-                    <div class="info-value" id="contractBalance">-</div>
-                </div>
-            </div>
-            <button onclick="loadContractInfo()">🔄 Refresh Info</button>
-        </div>
-
-        <!-- Price Management -->
-        <div class="section" id="priceSection" style="display: none;">
-            <h2>💰 Price Management</h2>
+// Load Inventory
+async function loadInventory() {
+    try {
+        log('Loading inventory...', 'info');
+        
+        const houses = await distributionContract.getAllHouses();
+        const inventoryDisplay = document.getElementById('inventoryDisplay');
+        inventoryDisplay.innerHTML = '';
+        
+        for (const house of houses) {
+            const count = await distributionContract.getHouseInventoryCount(house);
             
-            <div class="form-group">
-                <label>Current Prices:</label>
-                <div style="color: #00ff00;">
-                    1 Roll: <span id="currentSingle">-</span> ETH<br>
-                    3 Rolls: <span id="currentThree">-</span> ETH<br>
-                    5 Rolls: <span id="currentFive">-</span> ETH
-                </div>
-            </div>
+            const card = document.createElement('div');
+            card.className = 'house-card';
+            card.innerHTML = `
+                <div class="house-name">${house}</div>
+                <div class="house-count">${count} NFTs</div>
+            `;
+            inventoryDisplay.appendChild(card);
+        }
+        
+        log('Inventory loaded', 'success');
+        
+    } catch (error) {
+        console.error('Load inventory error:', error);
+        log(`Load inventory error: ${error.message}`, 'error');
+    }
+}
 
-            <div class="form-group">
-                <label>Update Single Roll Price (ETH):</label>
-                <input type="text" id="newSinglePrice" placeholder="0.0111">
-            </div>
-            <button onclick="updateSinglePrice()">Update Single Price</button>
+// Add to House Inventory
+async function addToHouseInventory() {
+    try {
+        const houseName = document.getElementById('houseSelect').value;
+        const tokenIdsText = document.getElementById('tokenIds').value;
+        
+        if (!houseName) {
+            alert('Please select a house');
+            return;
+        }
+        
+        if (!tokenIdsText) {
+            alert('Please enter token IDs');
+            return;
+        }
+        
+        // Parse token IDs - FIXED VERSION
+        const tokenIds = tokenIdsText
+            .split(',')
+            .map(id => id.trim())
+            .filter(id => id)
+            .map(id => parseInt(id, 10))      // FIXED: Added base-10
+            .filter(id => !isNaN(id));        // FIXED: Filter out NaN values
+        
+        if (tokenIds.length === 0) {
+            alert('No valid token IDs found');
+            return;
+        }
+        
+        console.log('Parsed token IDs:', tokenIds); // Debug log
+        
+        log(`Adding ${tokenIds.length} NFTs to ${houseName}...`, 'info');
+        
+        const tx = await distributionContract.addToHouseInventory(houseName, tokenIds);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Successfully added ${tokenIds.length} NFTs to ${houseName}`, 'success');
+        
+        // Clear form
+        document.getElementById('tokenIds').value = '';
+        
+        // Refresh
+        await refreshStatus();
+        await loadInventory();
+        
+    } catch (error) {
+        console.error('Add inventory error:', error);
+        
+        if (error.message.includes('Contract does not own this token')) {
+            log('❌ Error: Contract does not own one or more of these tokens. Transfer them first!', 'error');
+        } else {
+            log(`❌ Error: ${error.message}`, 'error');
+        }
+    }
+}
 
-            <div class="form-group">
-                <label>Update 3-Roll Pack Price (ETH):</label>
-                <input type="text" id="newThreePrice" placeholder="0.03">
-            </div>
-            <button onclick="updateThreePrice()">Update 3-Pack Price</button>
+// Add Single to Whitelist
+async function addSingleToWhitelist() {
+    try {
+        const address = document.getElementById('whitelistAddress').value;
+        const rolls = document.getElementById('freeRolls').value;
+        
+        if (!address || !ethers.isAddress(address)) {
+            alert('Please enter a valid address');
+            return;
+        }
+        
+        log(`Adding ${address} to whitelist with ${rolls} rolls...`, 'info');
+        
+        const tx = await distributionContract.updateWhitelist(address, rolls);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Added ${address.slice(0, 6)}...${address.slice(-4)} with ${rolls} rolls`, 'success');
+        
+        // Clear form
+        document.getElementById('whitelistAddress').value = '';
+        
+    } catch (error) {
+        console.error('Whitelist error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
 
-            <div class="form-group">
-                <label>Update 5-Roll Pack Price (ETH):</label>
-                <input type="text" id="newFivePrice" placeholder="0.045">
-            </div>
-            <button onclick="updateFivePrice()">Update 5-Pack Price</button>
-
-            <button onclick="updateAllPrices()" style="background: rgba(255, 165, 0, 0.2); border-color: orange; margin-top: 20px;">
-                ⚡ UPDATE ALL PRICES AT ONCE
-            </button>
-
-            <div id="priceResult"></div>
-        </div>
-
-        <!-- Add NFTs to House -->
-        <div class="section" id="inventorySection" style="display: none;">
-            <h2>🏠 Add NFTs to House Inventory</h2>
+// Batch Add to Whitelist
+async function batchAddToWhitelist() {
+    try {
+        const batchText = document.getElementById('batchWhitelist').value;
+        
+        if (!batchText) {
+            alert('Please enter addresses and rolls');
+            return;
+        }
+        
+        // Parse batch input
+        const lines = batchText.split('\n').filter(line => line.trim());
+        const addresses = [];
+        const rolls = [];
+        
+        for (const line of lines) {
+            const parts = line.split(',').map(p => p.trim());
+            if (parts.length !== 2) continue;
             
-            <div class="form-group">
-                <label>Select House:</label>
-                <select id="houseSelect">
-                    <option value="House of Havoc">House of Havoc</option>
-                    <option value="House of Misfits">House of Misfits</option>
-                    <option value="House of Frog">House of Frog</option>
-                    <option value="House of Theory">House of Theory</option>
-                    <option value="House of Spectrum">House of Spectrum</option>
-                    <option value="House of Clay">House of Clay</option>
-                    <option value="House of Stencil">House of Stencil</option>
-                    <option value="House of Royal">House of Royal</option>
-                    <option value="House of Shadows">House of Shadows</option>
-                    <option value="House of Hellish">House of Hellish</option>
-                    <option value="House of Hologram">House of Hologram</option>
-                    <option value="House of Gold">House of Gold</option>
-                    <option value="House of Death">House of Death</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Token IDs (comma-separated):</label>
-                <textarea id="tokenIds" placeholder="1, 2, 3, 4, 5"></textarea>
-                <div class="help-text">Enter token IDs separated by commas. Example: 1, 2, 3, 4, 5</div>
-            </div>
-
-            <button onclick="addToHouseInventory()">🏠 Add to House Inventory</button>
-
-            <div id="inventoryResult"></div>
-        </div>
-
-        <!-- Whitelist Management -->
-        <div class="section" id="whitelistSection" style="display: none;">
-            <h2>📋 Whitelist Management</h2>
-            
-            <div class="form-group">
-                <label>Wallet Address:</label>
-                <input type="text" id="whitelistAddress" placeholder="0x...">
-            </div>
-
-            <div class="form-group">
-                <label>Free Rolls:</label>
-                <input type="number" id="freeRolls" placeholder="3" min="0">
-            </div>
-
-            <button onclick="addToWhitelist()">➕ Add to Whitelist</button>
-
-            <div id="whitelistResult"></div>
-        </div>
-
-        <!-- Distribution Toggle -->
-        <div class="section" id="toggleSection" style="display: none;">
-            <h2>🔄 Distribution Control</h2>
-            
-            <div class="form-group">
-                <label>Current Status:</label>
-                <div style="color: #00ff00; font-size: 24px; font-weight: bold;" id="distStatus">-</div>
-            </div>
-
-            <button onclick="toggleDistribution()" style="background: rgba(255, 165, 0, 0.2); border-color: orange;">
-                🔄 Toggle Distribution (Enable/Disable)
-            </button>
-
-            <div id="toggleResult"></div>
-        </div>
-
-        <!-- Emergency Functions -->
-        <div class="section" id="emergencySection" style="display: none;">
-            <h2>🚨 Emergency Functions</h2>
-            
-            <button onclick="withdrawETH()" style="background: rgba(0, 255, 0, 0.2); border-color: #00ff00;">
-                💰 Withdraw ETH from Contract
-            </button>
-
-            <div id="emergencyResult"></div>
-        </div>
-    </div>
-
-    <script>
-        // CONTRACT CONFIGURATION
-        const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS_HERE"; // UPDATE THIS!
-        const WINIONS_NFT_ADDRESS = "0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733";
-
-        const CONTRACT_ABI = [
-            "function addToHouseInventory(string memory houseName, uint256[] memory tokenIds) external",
-            "function updateWhitelist(address user, uint256 freeRolls) external",
-            "function setSingleRollPrice(uint256 newPrice) external",
-            "function setThreeRollPrice(uint256 newPrice) external",
-            "function setFiveRollPrice(uint256 newPrice) external",
-            "function toggleDistribution() external",
-            "function withdrawETH() external",
-            "function getPrices() external view returns (uint256, uint256, uint256)",
-            "function distributionActive() external view returns (bool)",
-            "function getContractBalance() external view returns (uint256)",
-            "function getHouseInventoryCount(string memory houseName) external view returns (uint256)"
-        ];
-
-        let provider;
-        let signer;
-        let contract;
-        let userAddress;
-
-        async function connectWallet() {
-            try {
-                if (typeof window.ethereum === 'undefined') {
-                    alert('Please install MetaMask!');
-                    return;
-                }
-
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-                signer = provider.getSigner();
-                userAddress = await signer.getAddress();
-                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-                document.getElementById('walletStatus').innerHTML = `
-                    <div>Status: <strong style="color: #00ff00;">Connected</strong></div>
-                    <div>Address: <strong>${userAddress.substring(0, 6)}...${userAddress.substring(38)}</strong></div>
-                `;
-                document.getElementById('walletStatus').classList.add('connected');
-                document.getElementById('connectBtn').textContent = '✅ Connected';
-                document.getElementById('connectBtn').disabled = true;
-
-                // Show all sections
-                document.getElementById('contractInfo').style.display = 'block';
-                document.getElementById('priceSection').style.display = 'block';
-                document.getElementById('inventorySection').style.display = 'block';
-                document.getElementById('whitelistSection').style.display = 'block';
-                document.getElementById('toggleSection').style.display = 'block';
-                document.getElementById('emergencySection').style.display = 'block';
-
-                await loadContractInfo();
-            } catch (error) {
-                console.error(error);
-                alert('Failed to connect wallet: ' + error.message);
+            const [address, rollCount] = parts;
+            if (ethers.isAddress(address)) {
+                addresses.push(address);
+                rolls.push(parseInt(rollCount));
             }
         }
-
-        async function loadContractInfo() {
-            try {
-                const [single, three, five] = await contract.getPrices();
-                const active = await contract.distributionActive();
-                const balance = await contract.getContractBalance();
-
-                const singleETH = ethers.utils.formatEther(single);
-                const threeETH = ethers.utils.formatEther(three);
-                const fiveETH = ethers.utils.formatEther(five);
-                const balanceETH = ethers.utils.formatEther(balance);
-
-                document.getElementById('singlePrice').textContent = singleETH + ' ETH';
-                document.getElementById('threePrice').textContent = threeETH + ' ETH';
-                document.getElementById('fivePrice').textContent = fiveETH + ' ETH';
-                document.getElementById('activeStatus').textContent = active ? 'ACTIVE ✅' : 'INACTIVE ❌';
-                document.getElementById('contractBalance').textContent = balanceETH + ' ETH';
-
-                document.getElementById('currentSingle').textContent = singleETH;
-                document.getElementById('currentThree').textContent = threeETH;
-                document.getElementById('currentFive').textContent = fiveETH;
-                document.getElementById('distStatus').textContent = active ? 'ACTIVE ✅' : 'INACTIVE ❌';
-            } catch (error) {
-                console.error(error);
-                alert('Failed to load contract info: ' + error.message);
-            }
+        
+        if (addresses.length === 0) {
+            alert('No valid addresses found');
+            return;
         }
+        
+        log(`Batch adding ${addresses.length} addresses to whitelist...`, 'info');
+        
+        const tx = await distributionContract.addToWhitelist(addresses, rolls);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Successfully added ${addresses.length} addresses to whitelist`, 'success');
+        
+        // Clear form
+        document.getElementById('batchWhitelist').value = '';
+        
+    } catch (error) {
+        console.error('Batch whitelist error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
 
-        async function updateSinglePrice() {
-            try {
-                const newPrice = document.getElementById('newSinglePrice').value;
-                if (!newPrice) {
-                    alert('Please enter a price');
-                    return;
-                }
+// Load Prices
+async function loadPrices() {
+    try {
+        const [single, three, five] = await distributionContract.getPrices();
+        
+        document.getElementById('currentPrices').innerHTML = `
+            1 Roll: ${ethers.formatEther(single)} ETH<br>
+            3 Rolls: ${ethers.formatEther(three)} ETH<br>
+            5 Rolls: ${ethers.formatEther(five)} ETH
+        `;
+        
+    } catch (error) {
+        console.error('Load prices error:', error);
+    }
+}
 
-                const priceWei = ethers.utils.parseEther(newPrice);
-                const tx = await contract.setSingleRollPrice(priceWei);
-                
-                document.getElementById('priceResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
-                
-                await tx.wait();
-                
-                document.getElementById('priceResult').innerHTML = '<div class="success">✅ Single roll price updated!</div>';
-                await loadContractInfo();
-            } catch (error) {
-                console.error(error);
-                document.getElementById('priceResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-            }
+// Update Single Price
+async function updateSinglePrice() {
+    try {
+        const priceETH = document.getElementById('singlePrice').value;
+        if (!priceETH) {
+            alert('Please enter a price');
+            return;
         }
+        
+        const priceWei = ethers.parseEther(priceETH);
+        
+        log(`Updating single roll price to ${priceETH} ETH...`, 'info');
+        
+        const tx = await distributionContract.setSingleRollPrice(priceWei);
+        await tx.wait();
+        
+        log(`✅ Single roll price updated to ${priceETH} ETH`, 'success');
+        
+        await loadPrices();
+        
+    } catch (error) {
+        console.error('Update price error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
 
-        async function updateThreePrice() {
-            try {
-                const newPrice = document.getElementById('newThreePrice').value;
-                if (!newPrice) {
-                    alert('Please enter a price');
-                    return;
-                }
-
-                const priceWei = ethers.utils.parseEther(newPrice);
-                const tx = await contract.setThreeRollPrice(priceWei);
-                
-                document.getElementById('priceResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
-                
-                await tx.wait();
-                
-                document.getElementById('priceResult').innerHTML = '<div class="success">✅ 3-roll price updated!</div>';
-                await loadContractInfo();
-            } catch (error) {
-                console.error(error);
-                document.getElementById('priceResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-            }
+// Update Three Price
+async function updateThreePrice() {
+    try {
+        const priceETH = document.getElementById('threePrice').value;
+        if (!priceETH) {
+            alert('Please enter a price');
+            return;
         }
+        
+        const priceWei = ethers.parseEther(priceETH);
+        
+        log(`Updating 3-roll price to ${priceETH} ETH...`, 'info');
+        
+        const tx = await distributionContract.setThreeRollPrice(priceWei);
+        await tx.wait();
+        
+        log(`✅ 3-roll price updated to ${priceETH} ETH`, 'success');
+        
+        await loadPrices();
+        
+    } catch (error) {
+        console.error('Update price error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
 
-        async function updateFivePrice() {
-            try {
-                const newPrice = document.getElementById('newFivePrice').value;
-                if (!newPrice) {
-                    alert('Please enter a price');
-                    return;
-                }
-
-                const priceWei = ethers.utils.parseEther(newPrice);
-                const tx = await contract.setFiveRollPrice(priceWei);
-                
-                document.getElementById('priceResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
-                
-                await tx.wait();
-                
-                document.getElementById('priceResult').innerHTML = '<div class="success">✅ 5-roll price updated!</div>';
-                await loadContractInfo();
-            } catch (error) {
-                console.error(error);
-                document.getElementById('priceResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-            }
+// Update Five Price
+async function updateFivePrice() {
+    try {
+        const priceETH = document.getElementById('fivePrice').value;
+        if (!priceETH) {
+            alert('Please enter a price');
+            return;
         }
+        
+        const priceWei = ethers.parseEther(priceETH);
+        
+        log(`Updating 5-roll price to ${priceETH} ETH...`, 'info');
+        
+        const tx = await distributionContract.setFiveRollPrice(priceWei);
+        await tx.wait();
+        
+        log(`✅ 5-roll price updated to ${priceETH} ETH`, 'success');
+        
+        await loadPrices();
+        
+    } catch (error) {
+        console.error('Update price error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
 
-        async function updateAllPrices() {
-            try {
-                const single = document.getElementById('newSinglePrice').value;
-                const three = document.getElementById('newThreePrice').value;
-                const five = document.getElementById('newFivePrice').value;
-
-                if (!single || !three || !five) {
-                    alert('Please enter all three prices');
-                    return;
-                }
-
-                document.getElementById('priceResult').innerHTML = '<div class="success">Updating prices...</div>';
-
-                const tx1 = await contract.setSingleRollPrice(ethers.utils.parseEther(single));
-                await tx1.wait();
-
-                const tx2 = await contract.setThreeRollPrice(ethers.utils.parseEther(three));
-                await tx2.wait();
-
-                const tx3 = await contract.setFiveRollPrice(ethers.utils.parseEther(five));
-                await tx3.wait();
-
-                document.getElementById('priceResult').innerHTML = '<div class="success">✅ All prices updated!</div>';
-                await loadContractInfo();
-            } catch (error) {
-                console.error(error);
-                document.getElementById('priceResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-            }
+// Toggle Distribution
+async function toggleDistribution() {
+    try {
+        if (!confirm('Are you sure you want to toggle distribution status?')) {
+            return;
         }
+        
+        log('Toggling distribution...', 'info');
+        
+        const tx = await distributionContract.toggleDistribution();
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log('✅ Distribution status toggled', 'success');
+        
+        await refreshStatus();
+        
+    } catch (error) {
+        console.error('Toggle error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
 
-        async function addToHouseInventory() {
-            try {
-                const houseName = document.getElementById('houseSelect').value;
-                const tokenIdsInput = document.getElementById('tokenIds').value;
-
-                if (!tokenIdsInput.trim()) {
-                    alert('Please enter token IDs');
-                    return;
-                }
-
-                // FIXED: Proper parsing of token IDs
-                const tokenIds = tokenIdsInput
-                    .split(',')                    // Split by comma
-                    .map(id => id.trim())          // Trim whitespace
-                    .filter(id => id.length > 0)   // Remove empty strings
-                    .map(id => parseInt(id, 10))   // Convert to integers
-                    .filter(id => !isNaN(id));     // Remove any NaN values
-
-                if (tokenIds.length === 0) {
-                    alert('No valid token IDs found. Please check your input.');
-                    return;
-                }
-
-                console.log('Adding tokens:', tokenIds);
-                console.log('To house:', houseName);
-
-                document.getElementById('inventoryResult').innerHTML = `<div class="success">Adding ${tokenIds.length} NFTs to ${houseName}...</div>`;
-
-                const tx = await contract.addToHouseInventory(houseName, tokenIds);
-                
-                document.getElementById('inventoryResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
-                
-                await tx.wait();
-                
-                document.getElementById('inventoryResult').innerHTML = `<div class="success">✅ Successfully added ${tokenIds.length} NFTs to ${houseName}!<br>Transaction: ${tx.hash}</div>`;
-                
-                // Clear the input
-                document.getElementById('tokenIds').value = '';
-            } catch (error) {
-                console.error('Add to house error:', error);
-                document.getElementById('inventoryResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-            }
+// Withdraw ETH
+async function withdrawETH() {
+    try {
+        const balance = await provider.getBalance(CONFIG.DISTRIBUTION_CONTRACT);
+        const balanceETH = ethers.formatEther(balance);
+        
+        if (balance === 0n) {
+            alert('No ETH to withdraw');
+            return;
         }
-
-        async function addToWhitelist() {
-            try {
-                const address = document.getElementById('whitelistAddress').value;
-                const rolls = document.getElementById('freeRolls').value;
-
-                if (!address || !rolls) {
-                    alert('Please enter address and free rolls');
-                    return;
-                }
-
-                if (!ethers.utils.isAddress(address)) {
-                    alert('Invalid Ethereum address');
-                    return;
-                }
-
-                const tx = await contract.updateWhitelist(address, parseInt(rolls));
-                
-                document.getElementById('whitelistResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
-                
-                await tx.wait();
-                
-                document.getElementById('whitelistResult').innerHTML = `<div class="success">✅ Address whitelisted with ${rolls} free rolls!</div>`;
-                
-                // Clear inputs
-                document.getElementById('whitelistAddress').value = '';
-                document.getElementById('freeRolls').value = '';
-            } catch (error) {
-                console.error(error);
-                document.getElementById('whitelistResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-            }
+        
+        if (!confirm(`Withdraw ${balanceETH} ETH to your wallet?`)) {
+            return;
         }
+        
+        log(`Withdrawing ${balanceETH} ETH...`, 'info');
+        
+        const tx = await distributionContract.withdrawETH();
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Withdrew ${balanceETH} ETH`, 'success');
+        
+        await refreshStatus();
+        
+    } catch (error) {
+        console.error('Withdraw error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
 
-        async function toggleDistribution() {
-            try {
-                const tx = await contract.toggleDistribution();
-                
-                document.getElementById('toggleResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
-                
-                await tx.wait();
-                
-                document.getElementById('toggleResult').innerHTML = '<div class="success">✅ Distribution status toggled!</div>';
-                await loadContractInfo();
-            } catch (error) {
-                console.error(error);
-                document.getElementById('toggleResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-            }
+// Emergency Withdraw NFT
+async function emergencyWithdrawNFT() {
+    try {
+        const tokenId = document.getElementById('emergencyTokenId').value;
+        
+        if (!tokenId) {
+            alert('Please enter a token ID');
+            return;
         }
-
-        async function withdrawETH() {
-            try {
-                if (!confirm('Are you sure you want to withdraw all ETH from the contract?')) {
-                    return;
-                }
-
-                const tx = await contract.withdrawETH();
-                
-                document.getElementById('emergencyResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
-                
-                await tx.wait();
-                
-                document.getElementById('emergencyResult').innerHTML = '<div class="success">✅ ETH withdrawn successfully!</div>';
-                await loadContractInfo();
-            } catch (error) {
-                console.error(error);
-                document.getElementById('emergencyResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-            }
+        
+        if (!confirm(`Emergency withdraw token #${tokenId}? This should only be used in emergencies!`)) {
+            return;
         }
-    </script>
-</body>
-</html>
+        
+        log(`Emergency withdrawing token #${tokenId}...`, 'info');
+        
+        const tx = await distributionContract.emergencyWithdrawNFT(tokenId);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Emergency withdrew token #${tokenId}`, 'success');
+        
+        await refreshStatus();
+        await loadInventory();
+        
+    } catch (error) {
+        console.error('Emergency withdraw error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+// Emergency Withdraw House
+async function emergencyWithdrawHouse() {
+    try {
+        const houseName = document.getElementById('emergencyHouse').value;
+        
+        if (!houseName) {
+            alert('Please select a house');
+            return;
+        }
+        
+        if (!confirm(`Emergency withdraw ALL NFTs from ${houseName}? This should only be used in emergencies!`)) {
+            return;
+        }
+        
+        log(`Emergency withdrawing all NFTs from ${houseName}...`, 'info');
+        
+        const tx = await distributionContract.emergencyWithdrawHouse(houseName);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Emergency withdrew all NFTs from ${houseName}`, 'success');
+        
+        await refreshStatus();
+        await loadInventory();
+        
+    } catch (error) {
+        console.error('Emergency withdraw error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+// View on Etherscan
+function viewOnEtherscan() {
+    window.open(`${CONFIG.ETHERSCAN_URL}/address/${CONFIG.DISTRIBUTION_CONTRACT}`, '_blank');
+}
+
+// Handle account/network changes
+if (window.ethereum) {
+    window.ethereum.on('accountsChanged', (accounts) => {
+        location.reload();
+    });
+    
+    window.ethereum.on('chainChanged', () => {
+        location.reload();
+    });
+}
