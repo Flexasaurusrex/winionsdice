@@ -9,9 +9,14 @@ let winionsNFTContract;
 
 const WINIONS_NFT_ADDRESS = "0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733";
 const WINIONS_NFT_ABI = [
+    "function transferFrom(address from, address to, uint256 tokenId) external",
     "function safeTransferFrom(address from, address to, uint256 tokenId) external",
+    "function safeTransferFrom(address from, address to, uint256 tokenId, bytes data) external",
+    "function approve(address to, uint256 tokenId) external",
+    "function setApprovalForAll(address operator, bool approved) external",
     "function ownerOf(uint256 tokenId) external view returns (address)",
-    "function balanceOf(address owner) external view returns (uint256)"
+    "function balanceOf(address owner) external view returns (uint256)",
+    "function isApprovedForAll(address owner, address operator) external view returns (bool)"
 ];
 
 // Initialize
@@ -542,7 +547,8 @@ async function transferSingleNFT() {
         
         log(`Transferring token #${tokenId} to contract...`, 'info');
         
-        const tx = await winionsNFTContract.safeTransferFrom(
+        // Use transferFrom instead of safeTransferFrom
+        const tx = await winionsNFTContract.transferFrom(
             adminAddress,
             CONFIG.DISTRIBUTION_CONTRACT,
             tokenId
@@ -613,7 +619,7 @@ async function batchTransferNFTs() {
                     continue;
                 }
                 
-                const tx = await winionsNFTContract.safeTransferFrom(
+                const tx = await winionsNFTContract.transferFrom(
                     adminAddress,
                     CONFIG.DISTRIBUTION_CONTRACT,
                     tokenId
