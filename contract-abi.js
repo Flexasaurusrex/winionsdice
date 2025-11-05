@@ -642,3 +642,6 @@ const CONTRACT_ABI = [
         "type": "function"
     }
 ];
+
+// Also export as DISTRIBUTION_CONTRACT_ABI for compatibility
+const DISTRIBUTION_CONTRACT_ABI = CONTRACT_ABI;
