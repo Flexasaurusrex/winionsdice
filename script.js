@@ -1,4 +1,4 @@
-// Winions Dice Roller - FIXED Smart Rolling
+// Winions Dice Roller - Complete with Roll Validation & Custom Toasts
 // Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
 let provider;
@@ -9,6 +9,7 @@ let currentSchool = null;
 let currentRollTotal = 0;
 let currentHouseName = '';
 let availableHouses = {};
+let userTotalRolls = 0;
 
 const HOUSE_RANGES = {
     'House of Havoc': { min: 66, max: 99 },
@@ -26,9 +27,134 @@ const HOUSE_RANGES = {
     'House of Death': { min: 396, max: 396 }
 };
 
+// Custom Toast Notification System
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `custom-toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <span class="toast-icon">${getToastIcon(type)}</span>
+            <span class="toast-message">${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
+
+function getToastIcon(type) {
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️',
+        claim: '🎁'
+    };
+    return icons[type] || 'ℹ️';
+}
+
+// Add toast styles dynamically
+function injectToastStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .custom-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #1a0000 0%, #330000 100%);
+            border: 2px solid #ff1a1a;
+            border-radius: 10px;
+            padding: 20px 25px;
+            min-width: 300px;
+            max-width: 500px;
+            box-shadow: 0 10px 40px rgba(255, 26, 26, 0.5), 0 0 20px rgba(255, 26, 26, 0.3);
+            transform: translateX(600px);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 10000;
+            font-family: 'Courier New', monospace;
+            backdrop-filter: blur(10px);
+        }
+        
+        .custom-toast.show {
+            transform: translateX(0);
+        }
+        
+        .toast-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .toast-icon {
+            font-size: 24px;
+            animation: pulse 2s infinite;
+        }
+        
+        .toast-message {
+            color: #fff;
+            font-size: 16px;
+            line-height: 1.5;
+            flex: 1;
+        }
+        
+        .toast-success {
+            border-color: #00ff00;
+            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.3), 0 0 20px rgba(0, 255, 0, 0.2);
+        }
+        
+        .toast-error {
+            border-color: #ff4444;
+            box-shadow: 0 10px 40px rgba(255, 68, 68, 0.3), 0 0 20px rgba(255, 68, 68, 0.2);
+        }
+        
+        .toast-warning {
+            border-color: #ffd700;
+            box-shadow: 0 10px 40px rgba(255, 215, 0, 0.3), 0 0 20px rgba(255, 215, 0, 0.2);
+        }
+        
+        .toast-claim {
+            border-color: #4a90e2;
+            box-shadow: 0 10px 40px rgba(74, 144, 226, 0.3), 0 0 20px rgba(74, 144, 226, 0.2);
+            animation: celebrateToast 0.5s ease-out;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        @keyframes celebrateToast {
+            0% { transform: translateX(600px) scale(0.8); }
+            50% { transform: translateX(-20px) scale(1.05); }
+            100% { transform: translateX(0) scale(1); }
+        }
+        
+        @media (max-width: 768px) {
+            .custom-toast {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                min-width: unset;
+                max-width: unset;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 window.addEventListener('load', async () => {
+    injectToastStyles();
+    
     document.getElementById('connectButton').addEventListener('click', connectWallet);
-    document.getElementById('continueToSchool').addEventListener('click', showSchoolScreen);
+    document.getElementById('continueToSchool').addEventListener('click', validateAndContinue);
     
     document.querySelectorAll('.school-button').forEach(button => {
         button.addEventListener('click', () => selectSchool(button.dataset.school));
@@ -41,7 +167,7 @@ window.addEventListener('load', async () => {
 async function connectWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
-            alert('Please install MetaMask to use this app!');
+            showToast('Please install MetaMask to use this app!', 'error');
             return;
         }
 
@@ -70,10 +196,21 @@ async function connectWallet() {
         
         document.getElementById('walletStatus').textContent = `Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
         
+        showToast('Wallet connected successfully!', 'success');
+        
         await loadUserRolls();
         
     } catch (error) {
         console.error('Wallet connection error:', error);
+        
+        if (error.code === 4001) {
+            showToast('Connection rejected. Please approve the connection in your wallet.', 'error');
+        } else if (error.message && error.message.includes('ethereum')) {
+            showToast('Multiple wallet extensions detected. Please disable all except MetaMask and refresh.', 'error');
+        } else {
+            showToast(error.message || 'Connection failed', 'error');
+        }
+        
         document.getElementById('connectButton').disabled = false;
         document.getElementById('walletStatus').style.display = 'none';
     }
@@ -83,8 +220,12 @@ async function loadUserRolls() {
     try {
         const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
         
-        document.getElementById('freeRollsCount').textContent = freeRolls.toString();
-        document.getElementById('paidRollsCount').textContent = paidRolls.toString();
+        const freeNum = Number(freeRolls.toString());
+        const paidNum = Number(paidRolls.toString());
+        userTotalRolls = freeNum + paidNum;
+        
+        document.getElementById('freeRollsCount').textContent = freeNum;
+        document.getElementById('paidRollsCount').textContent = paidNum;
         
         const [single, three, five] = await distributionContract.getPrices();
         document.getElementById('price1').textContent = `${ethers.utils.formatEther(single)} ETH`;
@@ -96,19 +237,38 @@ async function loadUserRolls() {
         
         const isActive = await distributionContract.distributionActive();
         if (!isActive) {
-            alert('⚠️ Distribution is not currently active. Please check back later!');
+            showToast('Distribution is not currently active. Check back soon!', 'warning');
         }
         
     } catch (error) {
         console.error('Error loading rolls:', error);
-        alert('Error loading your rolls. Please refresh and try again.');
+        showToast('Error loading your rolls. Please refresh and try again.', 'error');
     }
+}
+
+// Validate user has rolls before continuing
+function validateAndContinue() {
+    if (userTotalRolls === 0) {
+        showToast('You need to purchase rolls before you can play! Choose a package below.', 'warning');
+        
+        // Highlight purchase section
+        const purchaseSection = document.querySelector('.purchase-section');
+        if (purchaseSection) {
+            purchaseSection.style.animation = 'pulse 1s ease-in-out 3';
+            setTimeout(() => {
+                purchaseSection.style.animation = '';
+            }, 3000);
+        }
+        
+        return;
+    }
+    
+    showSchoolScreen();
 }
 
 async function purchaseRolls(numberOfRolls) {
     try {
-        document.getElementById('verificationStatus').innerHTML = 
-            '<p class="info">⏳ Preparing transaction...</p>';
+        showToast('Preparing transaction...', 'info');
         
         const [single, three, five] = await distributionContract.getPrices();
         let price;
@@ -121,29 +281,21 @@ async function purchaseRolls(numberOfRolls) {
             value: price
         });
         
-        document.getElementById('verificationStatus').innerHTML = 
-            '<p class="info">⏳ Transaction sent! Waiting for confirmation...</p>';
+        showToast('Transaction sent! Waiting for confirmation...', 'info');
         
         await tx.wait();
         
-        document.getElementById('verificationStatus').innerHTML = 
-            '<p class="success">✅ Rolls purchased successfully!</p>';
+        showToast(`Successfully purchased ${numberOfRolls} roll${numberOfRolls > 1 ? 's' : ''}!`, 'success');
         
         await loadUserRolls();
-        
-        setTimeout(() => {
-            document.getElementById('verificationStatus').innerHTML = '';
-        }, 3000);
         
     } catch (error) {
         console.error('Purchase error:', error);
         
         if (error.code === 'ACTION_REJECTED') {
-            document.getElementById('verificationStatus').innerHTML = 
-                '<p class="error">❌ Transaction rejected</p>';
+            showToast('Transaction rejected', 'error');
         } else {
-            document.getElementById('verificationStatus').innerHTML = 
-                `<p class="error">❌ ${error.message || 'Purchase failed'}</p>`;
+            showToast(error.message || 'Purchase failed', 'error');
         }
     }
 }
@@ -169,6 +321,8 @@ async function selectSchool(school) {
     
     document.body.style.setProperty('--school-color', schoolColors[school] || '#ff1a1a');
     
+    showToast(`Selected School of ${school.charAt(0).toUpperCase() + school.slice(1)}`, 'info');
+    
     await checkAvailableHouses();
     
     createDice();
@@ -191,17 +345,14 @@ async function checkAvailableHouses() {
                         count: countNum,
                         range: range
                     };
-                    console.log(`✅ ${houseName}: ${countNum} NFTs`);
                 }
             } catch (error) {
                 console.error(`Error checking ${houseName}:`, error);
             }
         }
         
-        console.log('Available houses:', Object.keys(availableHouses));
-        
         if (Object.keys(availableHouses).length === 0) {
-            alert('⚠️ No NFTs available in any house! Please contact admin.');
+            showToast('No NFTs available in any house! Please contact admin.', 'error');
             document.getElementById('rollButton').disabled = true;
         }
         
@@ -223,12 +374,10 @@ function createDice() {
     }
 }
 
-// FIXED: Generate dice that actually sum to target
 function generateSmartDiceRolls() {
     const availableHousesList = Object.values(availableHouses);
     
     if (availableHousesList.length === 0) {
-        // Fallback: random roll
         const rolls = [];
         for (let i = 0; i < 66; i++) {
             rolls.push(Math.floor(Math.random() * 6) + 1);
@@ -236,46 +385,43 @@ function generateSmartDiceRolls() {
         return rolls;
     }
     
-    // Pick random house with NFTs
     const randomHouse = availableHousesList[Math.floor(Math.random() * availableHousesList.length)];
-    
-    // Pick random target within house range
     const target = Math.floor(Math.random() * (randomHouse.range.max - randomHouse.range.min + 1)) + randomHouse.range.min;
     
-    console.log(`🎯 Target: ${target} (${Object.keys(availableHouses).find(k => availableHouses[k] === randomHouse)})`);
-    
-    // Generate 66 dice that sum to target
     const rolls = [];
     let remaining = target;
     
-    // Roll first 65 dice
     for (let i = 0; i < 65; i++) {
-        // Calculate how much we have left to distribute
         const diceLeft = 66 - i;
-        const minPossible = diceLeft; // All remaining dice are 1
-        const maxPossible = diceLeft * 6; // All remaining dice are 6
+        const minPossible = diceLeft;
+        const maxPossible = diceLeft * 6;
         
-        // Find valid range for this die
         let minDie = Math.max(1, remaining - maxPossible + 6);
         let maxDie = Math.min(6, remaining - minPossible + 1);
         
-        // Roll within valid range
         const roll = Math.floor(Math.random() * (maxDie - minDie + 1)) + minDie;
         rolls.push(roll);
         remaining -= roll;
     }
     
-    // Last die is whatever's remaining
     rolls.push(remaining);
-    
-    // Validate
-    const sum = rolls.reduce((a, b) => a + b, 0);
-    console.log(`Rolls sum to: ${sum}, valid: ${rolls.every(r => r >= 1 && r <= 6)}`);
     
     return rolls;
 }
 
-function rollDice() {
+async function rollDice() {
+    // CRITICAL: Check rolls before allowing dice roll
+    if (userTotalRolls === 0) {
+        showToast('You have no rolls left! Purchase more rolls to continue.', 'warning');
+        
+        // Take them back to purchase screen
+        document.getElementById('diceScreen').style.display = 'none';
+        document.getElementById('schoolScreen').style.display = 'none';
+        document.getElementById('rollsScreen').style.display = 'block';
+        
+        return;
+    }
+    
     const rollButton = document.getElementById('rollButton');
     rollButton.disabled = true;
     
@@ -283,18 +429,15 @@ function rollDice() {
     
     if (dice.length !== 66) {
         console.error(`ERROR: Found ${dice.length} dice, should be 66!`);
-        alert('Dice loading error. Please refresh the page.');
+        showToast('Dice loading error. Please refresh the page.', 'error');
         rollButton.disabled = false;
         return;
     }
     
-    // Generate smart rolls that sum to target
     const rolls = generateSmartDiceRolls();
     
-    console.log('Final rolls:', rolls);
-    console.log('Sum:', rolls.reduce((a, b) => a + b, 0));
+    showToast('Rolling the dice...', 'info');
     
-    // Animate
     dice.forEach((die, index) => {
         die.classList.add('rolling');
         
@@ -334,10 +477,9 @@ function revealHouse(total) {
     const houseName = getHouseFromRoll(total);
     currentHouseName = houseName;
     
-    // Check if house has NFTs
     if (!availableHouses[houseName]) {
         console.error(`ERROR: Rolled into ${houseName} with 0 NFTs!`);
-        alert('⚠️ Error: Rolled into house with no NFTs. Please try again.');
+        showToast('Rolled into house with no NFTs. Please try again.', 'error');
         document.getElementById('rollButton').disabled = false;
         return;
     }
@@ -357,6 +499,8 @@ function revealHouse(total) {
     if (existingCount) existingCount.remove();
     houseResult.appendChild(countDisplay);
     
+    showToast(`You rolled into ${houseName}!`, 'success');
+    
     document.getElementById('rollButton').disabled = false;
 }
 
@@ -375,12 +519,15 @@ async function claimWinion() {
         claimButton.disabled = true;
         claimButton.textContent = 'CLAIMING...';
         
+        showToast('Claiming your Winion...', 'claim');
+        
         const tx = await distributionContract.claimWinion(
             currentRollTotal,
             currentHouseName
         );
         
         claimButton.textContent = 'WAITING FOR CONFIRMATION...';
+        showToast('Transaction sent! Waiting for confirmation...', 'info');
         
         const receipt = await tx.wait();
         
@@ -399,6 +546,8 @@ async function claimWinion() {
             tokenId = parsed.args.tokenId.toString();
         }
         
+        showToast(`🎉 Claimed Winion #${tokenId}!`, 'success');
+        
         showSuccessModal(tokenId, tx.hash);
         
     } catch (error) {
@@ -409,15 +558,15 @@ async function claimWinion() {
         claimButton.textContent = 'CLAIM YOUR WINION';
         
         if (error.code === 'ACTION_REJECTED') {
-            alert('❌ Transaction rejected');
+            showToast('Transaction rejected', 'error');
         } else if (error.message.includes('No rolls available')) {
-            alert('❌ No rolls available. Please purchase rolls first.');
+            showToast('No rolls available. Please purchase rolls first.', 'warning');
         } else if (error.message.includes('No NFTs available')) {
-            alert('❌ No NFTs available for this house.');
+            showToast('No NFTs available for this house.', 'error');
         } else if (error.message.includes('Distribution is not active')) {
-            alert('❌ Distribution is not currently active.');
+            showToast('Distribution is not currently active.', 'error');
         } else {
-            alert(`❌ ${error.message || 'Claim failed. Please try again.'}`);
+            showToast(error.message || 'Claim failed. Please try again.', 'error');
         }
     }
 }
@@ -470,6 +619,7 @@ if (window.ethereum) {
             location.reload();
         } else {
             userAddress = accounts[0];
+            showToast('Wallet changed', 'info');
             loadUserRolls();
         }
     });
