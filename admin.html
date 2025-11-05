@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Winions Distribution - Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.0/dist/ethers.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -13,130 +14,60 @@
 
         body {
             font-family: 'Courier New', monospace;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d1f3d 100%);
-            color: #fff;
-            min-height: 100vh;
+            background: #000000;
+            color: #ff1a1a;
             padding: 20px;
+            line-height: 1.6;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
         h1 {
-            font-size: 3em;
-            color: #ff3333;
-            text-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
+            font-size: 42px;
+            color: #ff1a1a;
+            text-align: center;
             margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 26, 26, 0.8);
         }
 
         .subtitle {
-            color: #aaa;
-            font-size: 1.2em;
-        }
-
-        .wallet-section {
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid #ff3333;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 30px;
             text-align: center;
+            color: #dd0000;
+            margin-bottom: 30px;
         }
 
-        .connect-btn {
-            background: linear-gradient(135deg, #ff3333, #cc0000);
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            font-size: 1.2em;
+        .section {
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #ff1a1a;
             border-radius: 10px;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-
-        .connect-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 30px rgba(255, 51, 51, 0.6);
-        }
-
-        .wallet-info {
-            margin-top: 15px;
-            display: none;
-        }
-
-        .wallet-info.active {
-            display: block;
-        }
-
-        .address {
-            color: #ff3333;
-            font-size: 1.1em;
-            margin: 10px 0;
-        }
-
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            padding: 30px;
             margin-bottom: 30px;
+            box-shadow: 0 0 40px rgba(255, 26, 26, 0.3);
         }
 
-        .status-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(255, 51, 51, 0.3);
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .status-card h3 {
-            color: #ff3333;
-            margin-bottom: 10px;
-            font-size: 1.2em;
-        }
-
-        .status-value {
-            font-size: 2em;
-            color: #fff;
-            font-weight: bold;
-        }
-
-        .status-value.active {
-            color: #00ff00;
-        }
-
-        .status-value.inactive {
-            color: #ff3333;
-        }
-
-        .admin-sections {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-            gap: 30px;
-        }
-
-        .admin-panel {
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(255, 51, 51, 0.3);
-            border-radius: 15px;
-            padding: 25px;
-        }
-
-        .admin-panel h2 {
-            color: #ff3333;
+        .section h2 {
+            color: #ffffff;
             margin-bottom: 20px;
-            font-size: 1.5em;
-            border-bottom: 2px solid rgba(255, 51, 51, 0.3);
-            padding-bottom: 10px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status {
+            padding: 15px;
+            background: rgba(255, 26, 26, 0.1);
+            border: 2px solid #ff1a1a;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .status.connected {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
         }
 
         .form-group {
@@ -145,447 +76,569 @@
 
         label {
             display: block;
+            color: #ff1a1a;
             margin-bottom: 8px;
-            color: #aaa;
-            font-size: 0.9em;
+            font-weight: bold;
         }
 
-        input[type="text"],
-        input[type="number"],
-        textarea,
-        select {
+        input, select, textarea {
             width: 100%;
+            background: #1a1a1a;
+            border: 2px solid #ff1a1a;
+            color: #ffffff;
             padding: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 51, 51, 0.3);
-            border-radius: 8px;
-            color: #fff;
             font-family: 'Courier New', monospace;
-            font-size: 1em;
+            font-size: 14px;
+            border-radius: 5px;
         }
 
         textarea {
-            min-height: 100px;
+            min-height: 120px;
             resize: vertical;
         }
 
-        .btn {
-            background: linear-gradient(135deg, #ff3333, #cc0000);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            font-size: 1em;
-            border-radius: 8px;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
+        button {
+            background: rgba(255, 26, 26, 0.2);
+            border: 2px solid #ff1a1a;
+            color: #ffffff;
+            padding: 15px 30px;
+            font-size: 16px;
             font-weight: bold;
-            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
             width: 100%;
             margin-top: 10px;
         }
 
-        .btn:hover {
-            transform: scale(1.02);
-            box-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
+        button:hover:not(:disabled) {
+            background: rgba(255, 26, 26, 0.4);
+            box-shadow: 0 0 20px rgba(255, 26, 26, 0.6);
+            transform: translateY(-2px);
         }
 
-        .btn-secondary {
-            background: linear-gradient(135deg, #666, #444);
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
-        .btn-success {
-            background: linear-gradient(135deg, #00cc00, #009900);
-        }
-
-        .btn-warning {
-            background: linear-gradient(135deg, #ff9900, #cc7700);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #cc0000, #990000);
-        }
-
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-            margin: 10px 0;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
-            background-color: #00ff00;
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-
-        .activity-log {
-            background: rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(255, 51, 51, 0.3);
-            border-radius: 10px;
+        .success {
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            color: #00ff00;
             padding: 15px;
-            max-height: 300px;
-            overflow-y: auto;
-            font-size: 0.9em;
-            margin-top: 20px;
+            border-radius: 5px;
+            margin-top: 15px;
         }
 
-        .log-entry {
-            padding: 8px;
-            margin-bottom: 5px;
-            border-left: 3px solid #ff3333;
-            padding-left: 10px;
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #ff0000;
+            color: #ff0000;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
         }
 
-        .log-entry.success {
-            border-left-color: #00ff00;
-        }
-
-        .log-entry.error {
-            border-left-color: #ff0000;
-        }
-
-        .log-entry .timestamp {
-            color: #666;
-            font-size: 0.8em;
-        }
-
-        .house-inventory {
+        .info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 10px;
-            margin: 15px 0;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
         }
 
-        .house-item {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid rgba(255, 51, 51, 0.3);
+        .info-item {
+            background: rgba(255, 26, 26, 0.1);
+            border: 1px solid #ff1a1a;
+            padding: 15px;
+            border-radius: 5px;
         }
 
-        .house-name {
-            font-size: 0.8em;
-            color: #ff3333;
+        .info-label {
+            color: #999;
+            font-size: 12px;
             margin-bottom: 5px;
         }
 
-        .house-count {
-            font-size: 1.5em;
+        .info-value {
+            color: #00ff00;
+            font-size: 18px;
             font-weight: bold;
         }
 
-        .info-box {
-            background: rgba(255, 255, 51, 0.1);
-            border: 2px solid rgba(255, 255, 51, 0.3);
-            border-radius: 8px;
-            padding: 15px;
-            margin: 15px 0;
-            font-size: 0.9em;
+        .help-text {
+            color: #999;
+            font-size: 12px;
+            margin-top: 5px;
         }
 
-        .error-message {
-            background: rgba(255, 0, 0, 0.1);
-            border: 2px solid rgba(255, 0, 0, 0.3);
-            border-radius: 8px;
-            padding: 15px;
-            margin: 15px 0;
-            color: #ff6666;
-        }
-
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2em;
-            }
-
-            .admin-sections {
-                grid-template-columns: 1fr;
-            }
-
-            .status-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .hidden {
-            display: none;
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🎲 WINIONS ADMIN PANEL 🎲</h1>
-            <p class="subtitle">Distribution Contract Management</p>
-        </header>
+        <h1>🔐 WINIONS ADMIN PANEL</h1>
+        <p class="subtitle">Manage your distribution contract</p>
 
         <!-- Wallet Connection -->
-        <div class="wallet-section">
-            <button id="connectWallet" class="connect-btn">CONNECT ADMIN WALLET</button>
-            <div id="walletInfo" class="wallet-info">
-                <p>Connected: <span id="walletAddress" class="address"></span></p>
-                <p>Status: <span id="ownerStatus"></span></p>
+        <div class="section">
+            <h2>👛 Wallet Connection</h2>
+            <div class="status" id="walletStatus">
+                <div>Status: <strong>Not Connected</strong></div>
             </div>
+            <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
         </div>
 
-        <!-- Contract Status Dashboard -->
-        <div id="statusDashboard" class="hidden">
-            <div class="status-grid">
-                <div class="status-card">
-                    <h3>Distribution Status</h3>
-                    <div id="distributionStatus" class="status-value inactive">INACTIVE</div>
+        <!-- Contract Info -->
+        <div class="section" id="contractInfo" style="display: none;">
+            <h2>📊 Contract Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Single Roll Price</div>
+                    <div class="info-value" id="singlePrice">-</div>
                 </div>
-                <div class="status-card">
-                    <h3>Contract Balance</h3>
-                    <div id="contractBalance" class="status-value">0 ETH</div>
+                <div class="info-item">
+                    <div class="info-label">3-Roll Pack Price</div>
+                    <div class="info-value" id="threePrice">-</div>
                 </div>
-                <div class="status-card">
-                    <h3>Total NFTs</h3>
-                    <div id="totalNFTs" class="status-value">0</div>
+                <div class="info-item">
+                    <div class="info-label">5-Roll Pack Price</div>
+                    <div class="info-value" id="fivePrice">-</div>
                 </div>
-                <div class="status-card">
-                    <h3>Contract Address</h3>
-                    <div class="status-value" style="font-size: 0.8em; word-break: break-all;">0xb479...7Ba7</div>
+                <div class="info-item">
+                    <div class="info-label">Distribution Active</div>
+                    <div class="info-value" id="activeStatus">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Contract Balance</div>
+                    <div class="info-value" id="contractBalance">-</div>
+                </div>
+            </div>
+            <button onclick="loadContractInfo()">🔄 Refresh Info</button>
+        </div>
+
+        <!-- Price Management -->
+        <div class="section" id="priceSection" style="display: none;">
+            <h2>💰 Price Management</h2>
+            
+            <div class="form-group">
+                <label>Current Prices:</label>
+                <div style="color: #00ff00;">
+                    1 Roll: <span id="currentSingle">-</span> ETH<br>
+                    3 Rolls: <span id="currentThree">-</span> ETH<br>
+                    5 Rolls: <span id="currentFive">-</span> ETH
                 </div>
             </div>
 
-            <!-- House Inventory Overview -->
-            <div class="admin-panel">
-                <h2>📊 House Inventory Overview</h2>
-                <div id="houseInventory" class="house-inventory"></div>
-                <button onclick="refreshInventory()" class="btn btn-secondary">🔄 Refresh Inventory</button>
+            <div class="form-group">
+                <label>Update Single Roll Price (ETH):</label>
+                <input type="text" id="newSinglePrice" placeholder="0.0111">
+            </div>
+            <button onclick="updateSinglePrice()">Update Single Price</button>
+
+            <div class="form-group">
+                <label>Update 3-Roll Pack Price (ETH):</label>
+                <input type="text" id="newThreePrice" placeholder="0.03">
+            </div>
+            <button onclick="updateThreePrice()">Update 3-Pack Price</button>
+
+            <div class="form-group">
+                <label>Update 5-Roll Pack Price (ETH):</label>
+                <input type="text" id="newFivePrice" placeholder="0.045">
+            </div>
+            <button onclick="updateFivePrice()">Update 5-Pack Price</button>
+
+            <button onclick="updateAllPrices()" style="background: rgba(255, 165, 0, 0.2); border-color: orange; margin-top: 20px;">
+                ⚡ UPDATE ALL PRICES AT ONCE
+            </button>
+
+            <div id="priceResult"></div>
+        </div>
+
+        <!-- Add NFTs to House -->
+        <div class="section" id="inventorySection" style="display: none;">
+            <h2>🏠 Add NFTs to House Inventory</h2>
+            
+            <div class="form-group">
+                <label>Select House:</label>
+                <select id="houseSelect">
+                    <option value="House of Havoc">House of Havoc</option>
+                    <option value="House of Misfits">House of Misfits</option>
+                    <option value="House of Frog">House of Frog</option>
+                    <option value="House of Theory">House of Theory</option>
+                    <option value="House of Spectrum">House of Spectrum</option>
+                    <option value="House of Clay">House of Clay</option>
+                    <option value="House of Stencil">House of Stencil</option>
+                    <option value="House of Royal">House of Royal</option>
+                    <option value="House of Shadows">House of Shadows</option>
+                    <option value="House of Hellish">House of Hellish</option>
+                    <option value="House of Hologram">House of Hologram</option>
+                    <option value="House of Gold">House of Gold</option>
+                    <option value="House of Death">House of Death</option>
+                </select>
             </div>
 
-            <!-- Admin Sections -->
-            <div class="admin-sections">
-                
-                <!-- Distribution Control -->
-                <div class="admin-panel">
-                    <h2>🎮 Distribution Control</h2>
-                    <div class="info-box">
-                        <strong>Current Status:</strong> <span id="distStatusText">Inactive</span><br>
-                        Toggle distribution ON to allow users to claim NFTs. Toggle OFF to pause claims.
-                    </div>
-                    <button id="toggleDistribution" class="btn btn-warning">🔄 TOGGLE DISTRIBUTION</button>
-                </div>
-
-                <!-- Price Management -->
-                <div class="admin-panel">
-                    <h2>💰 Price Management</h2>
-                    <div class="form-group">
-                        <label>Current Prices:</label>
-                        <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; margin: 10px 0;">
-                            <div>1 Roll: <span id="price1" style="color: #ff3333;">Loading...</span></div>
-                            <div>3 Rolls: <span id="price3" style="color: #ff3333;">Loading...</span></div>
-                            <div>5 Rolls: <span id="price5" style="color: #ff3333;">Loading...</span></div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Update Single Roll Price (ETH):</label>
-                        <input type="number" id="newPrice1" step="0.001" placeholder="0.0111">
-                        <button onclick="updatePrice('single')" class="btn">Update Single Price</button>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Update 3-Roll Pack Price (ETH):</label>
-                        <input type="number" id="newPrice3" step="0.001" placeholder="0.03">
-                        <button onclick="updatePrice('three')" class="btn">Update 3-Pack Price</button>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Update 5-Roll Pack Price (ETH):</label>
-                        <input type="number" id="newPrice5" step="0.001" placeholder="0.045">
-                        <button onclick="updatePrice('five')" class="btn">Update 5-Pack Price</button>
-                    </div>
-
-                    <button onclick="updateAllPrices()" class="btn btn-warning">💰 UPDATE ALL PRICES AT ONCE</button>
-                </div>
-
-                <!-- Add NFTs to Houses -->
-                <div class="admin-panel">
-                    <h2>🏠 Add NFTs to House Inventory</h2>
-                    <div class="form-group">
-                        <label>Select House:</label>
-                        <select id="houseSelect">
-                            <option value="">-- Select House --</option>
-                            <option value="House of Havoc">House of Havoc</option>
-                            <option value="House of Misfits">House of Misfits</option>
-                            <option value="House of Frog">House of Frog</option>
-                            <option value="House of Theory">House of Theory</option>
-                            <option value="House of Spectrum">House of Spectrum</option>
-                            <option value="House of Clay">House of Clay</option>
-                            <option value="House of Stencil">House of Stencil</option>
-                            <option value="House of Royal">House of Royal</option>
-                            <option value="House of Shadows">House of Shadows</option>
-                            <option value="House of Hellish">House of Hellish</option>
-                            <option value="House of Hologram">House of Hologram</option>
-                            <option value="House of Gold">House of Gold</option>
-                            <option value="House of Death">House of Death</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Token IDs (comma-separated):</label>
-                        <textarea id="tokenIds" placeholder="1, 2, 3, 4, 5"></textarea>
-                        <small style="color: #666;">Example: 1, 2, 3, 45, 67, 89</small>
-                    </div>
-
-                    <button onclick="addToHouse()" class="btn">➕ Add to House Inventory</button>
-                </div>
-
-                <!-- Whitelist Management -->
-                <div class="admin-panel">
-                    <h2>👥 Whitelist Management</h2>
-                    
-                    <div class="form-group">
-                        <label>Single Address:</label>
-                        <input type="text" id="singleAddress" placeholder="0x...">
-                        <input type="number" id="singleRolls" placeholder="Number of free rolls" min="0">
-                        <button onclick="addSingleToWhitelist()" class="btn">➕ Add Single Address</button>
-                    </div>
-
-                    <hr style="margin: 20px 0; border-color: rgba(255,51,51,0.3);">
-
-                    <div class="form-group">
-                        <label>Bulk Add (CSV Format):</label>
-                        <textarea id="bulkWhitelist" placeholder="0xAddress1, 3&#10;0xAddress2, 5&#10;0xAddress3, 1"></textarea>
-                        <small style="color: #666;">Format: address, rolls (one per line)</small>
-                        <button onclick="bulkAddToWhitelist()" class="btn btn-success">📋 BULK ADD TO WHITELIST</button>
-                    </div>
-
-                    <hr style="margin: 20px 0; border-color: rgba(255,51,51,0.3);">
-
-                    <div class="form-group">
-                        <label>Remove from Whitelist:</label>
-                        <input type="text" id="removeAddress" placeholder="0x...">
-                        <button onclick="removeFromWhitelist()" class="btn btn-danger">❌ Remove Address</button>
-                    </div>
-                </div>
-
-                <!-- Financial Management -->
-                <div class="admin-panel">
-                    <h2>💸 Financial Management</h2>
-                    <div class="info-box">
-                        <strong>Contract Balance:</strong> <span id="ethBalance">0 ETH</span><br>
-                        Withdraw collected ETH from roll sales to your admin wallet.
-                    </div>
-                    <button onclick="withdrawETH()" class="btn btn-success">💰 WITHDRAW ALL ETH</button>
-                </div>
-
-                <!-- Emergency Functions -->
-                <div class="admin-panel">
-                    <h2>🚨 Emergency Functions</h2>
-                    <div class="error-message">
-                        <strong>⚠️ USE WITH CAUTION!</strong><br>
-                        These functions should only be used in emergencies.
-                    </div>
-
-                    <div class="form-group">
-                        <label>Withdraw Single NFT:</label>
-                        <input type="number" id="emergencyTokenId" placeholder="Token ID">
-                        <button onclick="emergencyWithdrawNFT()" class="btn btn-danger">🚨 Withdraw NFT</button>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Withdraw Entire House:</label>
-                        <select id="emergencyHouse">
-                            <option value="">-- Select House --</option>
-                            <option value="House of Havoc">House of Havoc</option>
-                            <option value="House of Misfits">House of Misfits</option>
-                            <option value="House of Frog">House of Frog</option>
-                            <option value="House of Theory">House of Theory</option>
-                            <option value="House of Spectrum">House of Spectrum</option>
-                            <option value="House of Clay">House of Clay</option>
-                            <option value="House of Stencil">House of Stencil</option>
-                            <option value="House of Royal">House of Royal</option>
-                            <option value="House of Shadows">House of Shadows</option>
-                            <option value="House of Hellish">House of Hellish</option>
-                            <option value="House of Hologram">House of Hologram</option>
-                            <option value="House of Gold">House of Gold</option>
-                            <option value="House of Death">House of Death</option>
-                        </select>
-                        <button onclick="emergencyWithdrawHouse()" class="btn btn-danger">🚨 Withdraw House</button>
-                    </div>
-                </div>
-
-                <!-- User Lookup -->
-                <div class="admin-panel">
-                    <h2>🔍 User Lookup</h2>
-                    <div class="form-group">
-                        <label>Check User's Rolls:</label>
-                        <input type="text" id="lookupAddress" placeholder="0x...">
-                        <button onclick="lookupUser()" class="btn btn-secondary">🔍 Lookup User</button>
-                    </div>
-                    <div id="userLookupResult" style="margin-top: 15px;"></div>
-                </div>
-
+            <div class="form-group">
+                <label>Token IDs (comma-separated):</label>
+                <textarea id="tokenIds" placeholder="1, 2, 3, 4, 5"></textarea>
+                <div class="help-text">Enter token IDs separated by commas. Example: 1, 2, 3, 4, 5</div>
             </div>
 
-            <!-- Activity Log -->
-            <div class="admin-panel" style="grid-column: 1 / -1;">
-                <h2>📜 Activity Log</h2>
-                <div id="activityLog" class="activity-log">
-                    <div class="log-entry">
-                        <span class="timestamp">[Ready]</span> Admin panel loaded. Connect wallet to begin.
-                    </div>
-                </div>
+            <button onclick="addToHouseInventory()">🏠 Add to House Inventory</button>
+
+            <div id="inventoryResult"></div>
+        </div>
+
+        <!-- Whitelist Management -->
+        <div class="section" id="whitelistSection" style="display: none;">
+            <h2>📋 Whitelist Management</h2>
+            
+            <div class="form-group">
+                <label>Wallet Address:</label>
+                <input type="text" id="whitelistAddress" placeholder="0x...">
             </div>
+
+            <div class="form-group">
+                <label>Free Rolls:</label>
+                <input type="number" id="freeRolls" placeholder="3" min="0">
+            </div>
+
+            <button onclick="addToWhitelist()">➕ Add to Whitelist</button>
+
+            <div id="whitelistResult"></div>
+        </div>
+
+        <!-- Distribution Toggle -->
+        <div class="section" id="toggleSection" style="display: none;">
+            <h2>🔄 Distribution Control</h2>
+            
+            <div class="form-group">
+                <label>Current Status:</label>
+                <div style="color: #00ff00; font-size: 24px; font-weight: bold;" id="distStatus">-</div>
+            </div>
+
+            <button onclick="toggleDistribution()" style="background: rgba(255, 165, 0, 0.2); border-color: orange;">
+                🔄 Toggle Distribution (Enable/Disable)
+            </button>
+
+            <div id="toggleResult"></div>
+        </div>
+
+        <!-- Emergency Functions -->
+        <div class="section" id="emergencySection" style="display: none;">
+            <h2>🚨 Emergency Functions</h2>
+            
+            <button onclick="withdrawETH()" style="background: rgba(0, 255, 0, 0.2); border-color: #00ff00;">
+                💰 Withdraw ETH from Contract
+            </button>
+
+            <div id="emergencyResult"></div>
         </div>
     </div>
 
-    <!-- Ethers.js Library v5 (jsdelivr CDN) -->
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    
-    <!-- Contract & Admin Scripts -->
-    <script src="contract-abi.js"></script>
-    <script src="admin-script.js"></script>
+    <script>
+        // CONTRACT CONFIGURATION
+        const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS_HERE"; // UPDATE THIS!
+        const WINIONS_NFT_ADDRESS = "0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733";
+
+        const CONTRACT_ABI = [
+            "function addToHouseInventory(string memory houseName, uint256[] memory tokenIds) external",
+            "function updateWhitelist(address user, uint256 freeRolls) external",
+            "function setSingleRollPrice(uint256 newPrice) external",
+            "function setThreeRollPrice(uint256 newPrice) external",
+            "function setFiveRollPrice(uint256 newPrice) external",
+            "function toggleDistribution() external",
+            "function withdrawETH() external",
+            "function getPrices() external view returns (uint256, uint256, uint256)",
+            "function distributionActive() external view returns (bool)",
+            "function getContractBalance() external view returns (uint256)",
+            "function getHouseInventoryCount(string memory houseName) external view returns (uint256)"
+        ];
+
+        let provider;
+        let signer;
+        let contract;
+        let userAddress;
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask!');
+                    return;
+                }
+
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+                document.getElementById('walletStatus').innerHTML = `
+                    <div>Status: <strong style="color: #00ff00;">Connected</strong></div>
+                    <div>Address: <strong>${userAddress.substring(0, 6)}...${userAddress.substring(38)}</strong></div>
+                `;
+                document.getElementById('walletStatus').classList.add('connected');
+                document.getElementById('connectBtn').textContent = '✅ Connected';
+                document.getElementById('connectBtn').disabled = true;
+
+                // Show all sections
+                document.getElementById('contractInfo').style.display = 'block';
+                document.getElementById('priceSection').style.display = 'block';
+                document.getElementById('inventorySection').style.display = 'block';
+                document.getElementById('whitelistSection').style.display = 'block';
+                document.getElementById('toggleSection').style.display = 'block';
+                document.getElementById('emergencySection').style.display = 'block';
+
+                await loadContractInfo();
+            } catch (error) {
+                console.error(error);
+                alert('Failed to connect wallet: ' + error.message);
+            }
+        }
+
+        async function loadContractInfo() {
+            try {
+                const [single, three, five] = await contract.getPrices();
+                const active = await contract.distributionActive();
+                const balance = await contract.getContractBalance();
+
+                const singleETH = ethers.utils.formatEther(single);
+                const threeETH = ethers.utils.formatEther(three);
+                const fiveETH = ethers.utils.formatEther(five);
+                const balanceETH = ethers.utils.formatEther(balance);
+
+                document.getElementById('singlePrice').textContent = singleETH + ' ETH';
+                document.getElementById('threePrice').textContent = threeETH + ' ETH';
+                document.getElementById('fivePrice').textContent = fiveETH + ' ETH';
+                document.getElementById('activeStatus').textContent = active ? 'ACTIVE ✅' : 'INACTIVE ❌';
+                document.getElementById('contractBalance').textContent = balanceETH + ' ETH';
+
+                document.getElementById('currentSingle').textContent = singleETH;
+                document.getElementById('currentThree').textContent = threeETH;
+                document.getElementById('currentFive').textContent = fiveETH;
+                document.getElementById('distStatus').textContent = active ? 'ACTIVE ✅' : 'INACTIVE ❌';
+            } catch (error) {
+                console.error(error);
+                alert('Failed to load contract info: ' + error.message);
+            }
+        }
+
+        async function updateSinglePrice() {
+            try {
+                const newPrice = document.getElementById('newSinglePrice').value;
+                if (!newPrice) {
+                    alert('Please enter a price');
+                    return;
+                }
+
+                const priceWei = ethers.utils.parseEther(newPrice);
+                const tx = await contract.setSingleRollPrice(priceWei);
+                
+                document.getElementById('priceResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
+                
+                await tx.wait();
+                
+                document.getElementById('priceResult').innerHTML = '<div class="success">✅ Single roll price updated!</div>';
+                await loadContractInfo();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('priceResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function updateThreePrice() {
+            try {
+                const newPrice = document.getElementById('newThreePrice').value;
+                if (!newPrice) {
+                    alert('Please enter a price');
+                    return;
+                }
+
+                const priceWei = ethers.utils.parseEther(newPrice);
+                const tx = await contract.setThreeRollPrice(priceWei);
+                
+                document.getElementById('priceResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
+                
+                await tx.wait();
+                
+                document.getElementById('priceResult').innerHTML = '<div class="success">✅ 3-roll price updated!</div>';
+                await loadContractInfo();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('priceResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function updateFivePrice() {
+            try {
+                const newPrice = document.getElementById('newFivePrice').value;
+                if (!newPrice) {
+                    alert('Please enter a price');
+                    return;
+                }
+
+                const priceWei = ethers.utils.parseEther(newPrice);
+                const tx = await contract.setFiveRollPrice(priceWei);
+                
+                document.getElementById('priceResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
+                
+                await tx.wait();
+                
+                document.getElementById('priceResult').innerHTML = '<div class="success">✅ 5-roll price updated!</div>';
+                await loadContractInfo();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('priceResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function updateAllPrices() {
+            try {
+                const single = document.getElementById('newSinglePrice').value;
+                const three = document.getElementById('newThreePrice').value;
+                const five = document.getElementById('newFivePrice').value;
+
+                if (!single || !three || !five) {
+                    alert('Please enter all three prices');
+                    return;
+                }
+
+                document.getElementById('priceResult').innerHTML = '<div class="success">Updating prices...</div>';
+
+                const tx1 = await contract.setSingleRollPrice(ethers.utils.parseEther(single));
+                await tx1.wait();
+
+                const tx2 = await contract.setThreeRollPrice(ethers.utils.parseEther(three));
+                await tx2.wait();
+
+                const tx3 = await contract.setFiveRollPrice(ethers.utils.parseEther(five));
+                await tx3.wait();
+
+                document.getElementById('priceResult').innerHTML = '<div class="success">✅ All prices updated!</div>';
+                await loadContractInfo();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('priceResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function addToHouseInventory() {
+            try {
+                const houseName = document.getElementById('houseSelect').value;
+                const tokenIdsInput = document.getElementById('tokenIds').value;
+
+                if (!tokenIdsInput.trim()) {
+                    alert('Please enter token IDs');
+                    return;
+                }
+
+                // FIXED: Proper parsing of token IDs
+                const tokenIds = tokenIdsInput
+                    .split(',')                    // Split by comma
+                    .map(id => id.trim())          // Trim whitespace
+                    .filter(id => id.length > 0)   // Remove empty strings
+                    .map(id => parseInt(id, 10))   // Convert to integers
+                    .filter(id => !isNaN(id));     // Remove any NaN values
+
+                if (tokenIds.length === 0) {
+                    alert('No valid token IDs found. Please check your input.');
+                    return;
+                }
+
+                console.log('Adding tokens:', tokenIds);
+                console.log('To house:', houseName);
+
+                document.getElementById('inventoryResult').innerHTML = `<div class="success">Adding ${tokenIds.length} NFTs to ${houseName}...</div>`;
+
+                const tx = await contract.addToHouseInventory(houseName, tokenIds);
+                
+                document.getElementById('inventoryResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
+                
+                await tx.wait();
+                
+                document.getElementById('inventoryResult').innerHTML = `<div class="success">✅ Successfully added ${tokenIds.length} NFTs to ${houseName}!<br>Transaction: ${tx.hash}</div>`;
+                
+                // Clear the input
+                document.getElementById('tokenIds').value = '';
+            } catch (error) {
+                console.error('Add to house error:', error);
+                document.getElementById('inventoryResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function addToWhitelist() {
+            try {
+                const address = document.getElementById('whitelistAddress').value;
+                const rolls = document.getElementById('freeRolls').value;
+
+                if (!address || !rolls) {
+                    alert('Please enter address and free rolls');
+                    return;
+                }
+
+                if (!ethers.utils.isAddress(address)) {
+                    alert('Invalid Ethereum address');
+                    return;
+                }
+
+                const tx = await contract.updateWhitelist(address, parseInt(rolls));
+                
+                document.getElementById('whitelistResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
+                
+                await tx.wait();
+                
+                document.getElementById('whitelistResult').innerHTML = `<div class="success">✅ Address whitelisted with ${rolls} free rolls!</div>`;
+                
+                // Clear inputs
+                document.getElementById('whitelistAddress').value = '';
+                document.getElementById('freeRolls').value = '';
+            } catch (error) {
+                console.error(error);
+                document.getElementById('whitelistResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function toggleDistribution() {
+            try {
+                const tx = await contract.toggleDistribution();
+                
+                document.getElementById('toggleResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
+                
+                await tx.wait();
+                
+                document.getElementById('toggleResult').innerHTML = '<div class="success">✅ Distribution status toggled!</div>';
+                await loadContractInfo();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('toggleResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function withdrawETH() {
+            try {
+                if (!confirm('Are you sure you want to withdraw all ETH from the contract?')) {
+                    return;
+                }
+
+                const tx = await contract.withdrawETH();
+                
+                document.getElementById('emergencyResult').innerHTML = '<div class="success">Transaction sent! Waiting for confirmation...</div>';
+                
+                await tx.wait();
+                
+                document.getElementById('emergencyResult').innerHTML = '<div class="success">✅ ETH withdrawn successfully!</div>';
+                await loadContractInfo();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('emergencyResult').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+    </script>
 </body>
 </html>
