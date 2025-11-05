@@ -159,6 +159,133 @@ async function loadInventory() {
     }
 }
 
+// House metadata - maps token IDs to houses
+const HOUSE_METADATA = {
+    "House of Havoc": [14, 19, 21, 23, 30, 33, 34, 41, 44, 45, 46, 51, 57, 59, 60, 63, 68, 71, 74, 79, 83, 84, 88, 101, 102, 106, 107, 110, 115, 118, 125, 126, 127, 132, 133, 135, 140, 142, 146, 152, 153, 154, 156, 158, 160, 163, 166, 168, 170, 171, 177, 178, 179, 181, 186, 187, 189, 191, 192, 193, 197, 203, 204, 206, 207, 210, 211, 214, 215, 218, 220, 225, 234, 237, 238, 243, 244, 246, 249, 255, 256, 259, 264, 270, 274, 275, 277, 280, 287, 289, 292, 295, 297, 298, 303, 306, 308, 314, 315, 321, 323, 324, 327, 331, 332, 337, 338, 346, 347, 348, 351, 354, 356, 358, 360, 365, 369, 370, 373, 374, 375, 378, 380, 382, 383, 387, 389, 390, 394, 395, 399, 403, 410, 413, 415, 419, 422, 424, 428, 431, 433, 434, 440, 447, 450, 453, 463, 466, 473, 475, 477, 479, 485, 486, 487, 494, 496, 502, 503, 507, 508, 509, 511, 519, 522, 525, 528, 533, 535, 537, 540, 542, 544, 548, 550, 554, 557, 560, 561, 566, 568, 571, 573, 574, 576, 577, 578, 580, 584, 588, 590, 591, 592, 594, 601, 602, 606, 607, 611, 613, 614, 615, 619, 621, 622, 623, 624, 628, 632, 633, 636, 640, 642, 644, 647, 651, 652, 653, 655, 656, 661, 663],
+    "House of Misfits": [2, 8, 16, 22, 29, 32, 36, 43, 48, 54, 56, 62, 72, 76, 77, 82, 87, 90, 94, 104, 109, 117, 120, 130, 137, 143, 151, 155, 161, 174, 183, 190, 196, 209, 212, 216, 222, 228, 233, 235, 240, 248, 253, 260, 266, 272, 281, 290, 296, 301, 307, 317, 322, 325, 334, 343, 349, 353, 357, 363, 368, 371, 376, 381, 385, 393, 398, 408, 414, 420, 425, 432, 436, 439, 441, 449, 451, 456, 469, 478, 484, 489, 497, 501, 504, 513, 518, 523, 532, 534, 538, 546, 553, 558, 562, 564, 567, 572, 579, 581, 583, 585, 589, 597, 603, 608, 626, 635, 649, 660, 665],
+    "House of Frog": [6, 9, 15, 20, 28, 35, 40, 42, 53, 61, 75, 80, 85, 103, 111, 116, 138, 149, 159, 175, 188, 198, 205, 208, 221, 239, 242, 258, 262, 271, 283, 294, 313, 319, 336, 339, 350, 355, 366, 372, 384, 392, 400, 409, 421, 435, 438, 448, 461, 468, 472, 492, 499, 505, 526, 536, 543, 556, 570, 587, 600, 609, 616, 625, 645, 654],
+    "House of Theory": [17, 26, 50, 64, 81, 86, 131, 139, 141, 150, 157, 162, 180, 185, 200, 247, 261, 279, 286, 293, 312, 316, 333, 345, 359, 402, 405, 426, 430, 442, 462, 465, 476, 490, 520, 545, 547, 552, 599, 618, 620, 638, 646, 662],
+    "House of Spectrum": [3, 24, 52, 73, 95, 113, 114, 122, 145, 173, 182, 201, 202, 226, 229, 241, 251, 252, 265, 285, 299, 320, 335, 352, 364, 386, 407, 411, 437, 444, 454, 474, 480, 506, 510, 514, 531, 563, 586, 598, 604, 631, 637, 664],
+    "House of Clay": [27, 78, 98, 119, 124, 147, 165, 172, 231, 245, 254, 257, 284, 300, 309, 310, 318, 328, 342, 367, 401, 406, 412, 429, 443, 471, 491, 493, 495, 500, 596, 605, 627],
+    "House of Stencil": [1, 7, 31, 67, 92, 96, 108, 121, 144, 195, 227, 230, 250, 269, 304, 326, 379, 396, 404, 423, 445, 458, 483, 517, 521, 541, 549, 565, 582, 595, 612, 639, 650],
+    "House of Royal": [10, 37, 55, 69, 89, 105, 129, 164, 176, 199, 276, 278, 340, 377, 417, 459, 467, 512, 527, 593, 641, 659],
+    "House of Shadows": [5, 39, 49, 70, 97, 123, 136, 148, 194, 213, 219, 224, 267, 268, 282, 291, 305, 329, 361, 391, 416, 452, 457, 460, 470, 498, 524, 529, 551, 569, 610, 643, 657],
+    "House of Hellish": [11, 12, 65, 91, 99, 167, 169, 236, 263, 311, 341, 397, 427, 446, 455, 482, 515, 539, 555, 617, 629, 648],
+    "House of Hologram": [4, 13, 25, 38, 58, 93, 112, 134, 217, 232, 288, 302, 330, 362, 388, 464, 488, 530, 559, 575, 630, 658],
+    "House of Gold": [18, 47, 66, 184, 273, 344, 418, 481, 516, 634, 666],
+    "House of Death": [100, 128, 223]
+};
+
+// Create reverse lookup: tokenId -> house
+const TOKEN_TO_HOUSE = {};
+for (const [house, tokens] of Object.entries(HOUSE_METADATA)) {
+    for (const token of tokens) {
+        TOKEN_TO_HOUSE[token] = house;
+    }
+}
+
+// Check User's NFT Ownership
+async function checkMyNFTs() {
+    try {
+        log('Checking your NFT ownership...', 'info');
+        
+        document.getElementById('nftOwnershipResults').style.display = 'block';
+        document.getElementById('nftList').innerHTML = '<p style="color: #00ff00;">Scanning blockchain...</p>';
+        
+        const balance = await winionsNFTContract.balanceOf(adminAddress);
+        const balanceNum = Number(balance);
+        
+        if (balanceNum === 0) {
+            document.getElementById('nftList').innerHTML = '<p style="color: #ff4444;">You don\'t own any Winions NFTs with this wallet.</p>';
+            return;
+        }
+        
+        log(`Found ${balanceNum} Winions in your wallet`, 'success');
+        
+        // Get all token IDs owned by checking all possible tokens
+        const ownedTokens = [];
+        
+        // Check tokens 1-666 (this might take a moment)
+        document.getElementById('nftList').innerHTML = '<p style="color: #00ff00;">Checking tokens 1-666... This may take a minute...</p>';
+        
+        for (let tokenId = 1; tokenId <= 666; tokenId++) {
+            try {
+                const owner = await winionsNFTContract.ownerOf(tokenId);
+                if (owner.toLowerCase() === adminAddress.toLowerCase()) {
+                    ownedTokens.push(tokenId);
+                }
+            } catch (error) {
+                // Token doesn't exist or error, skip
+            }
+            
+            // Update progress every 50 tokens
+            if (tokenId % 50 === 0) {
+                document.getElementById('nftList').innerHTML = `<p style="color: #00ff00;">Checking tokens... ${tokenId}/666</p>`;
+            }
+        }
+        
+        // Sort tokens
+        ownedTokens.sort((a, b) => a - b);
+        
+        // Group by house
+        const byHouse = {};
+        for (const tokenId of ownedTokens) {
+            const house = TOKEN_TO_HOUSE[tokenId] || 'Unknown House';
+            if (!byHouse[house]) {
+                byHouse[house] = [];
+            }
+            byHouse[house].push(tokenId);
+        }
+        
+        // Display results
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        html += '<thead><tr style="border-bottom: 2px solid #ff1a1a;">';
+        html += '<th style="text-align: left; padding: 10px; color: #ff1a1a;">Token ID</th>';
+        html += '<th style="text-align: left; padding: 10px; color: #ff1a1a;">House</th>';
+        html += '</tr></thead><tbody>';
+        
+        for (const tokenId of ownedTokens) {
+            const house = TOKEN_TO_HOUSE[tokenId] || 'Unknown';
+            html += `<tr style="border-bottom: 1px solid #333;">`;
+            html += `<td style="padding: 10px; color: #00ff00; font-weight: bold;">#${tokenId}</td>`;
+            html += `<td style="padding: 10px; color: #fff;">${house}</td>`;
+            html += `</tr>`;
+        }
+        
+        html += '</tbody></table>';
+        
+        document.getElementById('nftList').innerHTML = html;
+        
+        // Summary
+        let summary = `<h3 style="color: #00ff00; margin-bottom: 15px;">Total: ${ownedTokens.length} NFTs</h3>`;
+        summary += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">`;
+        
+        for (const [house, tokens] of Object.entries(byHouse).sort((a, b) => b[1].length - a[1].length)) {
+            summary += `<div style="background: rgba(255, 26, 26, 0.1); border: 2px solid #ff1a1a; padding: 15px; border-radius: 5px;">`;
+            summary += `<strong style="color: #ff1a1a;">${house}</strong><br>`;
+            summary += `<span style="color: #00ff00; font-size: 24px; font-weight: bold;">${tokens.length}</span> NFTs<br>`;
+            summary += `<small style="color: #999;">IDs: ${tokens.join(', ')}</small>`;
+            summary += `</div>`;
+        }
+        
+        summary += `</div>`;
+        
+        summary += `<div style="margin-top: 20px; padding: 15px; background: rgba(0, 255, 0, 0.1); border: 2px solid #00ff00; border-radius: 5px;">`;
+        summary += `<strong style="color: #00ff00;">Copy for Batch Transfer:</strong><br>`;
+        summary += `<input type="text" value="${ownedTokens.join(', ')}" readonly style="width: 100%; margin-top: 10px; padding: 10px; background: #1a1a1a; border: 1px solid #00ff00; color: #00ff00; font-family: 'Courier New', monospace;" onclick="this.select()">`;
+        summary += `</div>`;
+        
+        document.getElementById('nftSummary').innerHTML = summary;
+        
+        log(`✅ Found ${ownedTokens.length} Winions owned by your wallet`, 'success');
+        
+    } catch (error) {
+        console.error('Check NFTs error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        document.getElementById('nftList').innerHTML = `<p style="color: #ff4444;">Error: ${error.message}</p>`;
+    }
+}
+
 // Check NFT Ownership
 async function checkNFTOwnership() {
     try {
