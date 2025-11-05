@@ -45,9 +45,9 @@ async function connectWallet() {
         
         userAddress = accounts[0];
         
-        // Setup ethers provider
-        provider = new ethers.BrowserProvider(window.ethereum);
-        signer = await provider.getSigner();
+        // Setup ethers provider - FIXED FOR V5
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
         
         // Initialize contract
         distributionContract = new ethers.Contract(
@@ -58,7 +58,7 @@ async function connectWallet() {
         
         // Check if on correct network
         const network = await provider.getNetwork();
-        if (network.chainId !== BigInt(CONFIG.CHAIN_ID)) {
+        if (network.chainId !== CONFIG.CHAIN_ID) {
             throw new Error('Please switch to Ethereum Mainnet');
         }
         
@@ -95,11 +95,11 @@ async function loadUserRolls() {
         document.getElementById('freeRollsCount').textContent = freeRolls.toString();
         document.getElementById('paidRollsCount').textContent = paidRolls.toString();
         
-        // Get prices
+        // Get prices - FIXED FOR V5
         const [single, three, five] = await distributionContract.getPrices();
-        document.getElementById('price1').textContent = `${ethers.formatEther(single)} ETH`;
-        document.getElementById('price3').textContent = `${ethers.formatEther(three)} ETH`;
-        document.getElementById('price5').textContent = `${ethers.formatEther(five)} ETH`;
+        document.getElementById('price1').textContent = `${ethers.utils.formatEther(single)} ETH`;
+        document.getElementById('price3').textContent = `${ethers.utils.formatEther(three)} ETH`;
+        document.getElementById('price5').textContent = `${ethers.utils.formatEther(five)} ETH`;
         
         // Show rolls screen
         document.getElementById('walletScreen').style.display = 'none';
@@ -261,6 +261,24 @@ function revealHouse(total) {
     document.getElementById('houseResult').style.display = 'block';
     
     document.getElementById('rollButton').disabled = false;
+}
+
+// Get House From Roll Total
+function getHouseFromRoll(total) {
+    if (total >= 66 && total <= 99) return 'House of Havoc';
+    if (total >= 100 && total <= 132) return 'House of Misfits';
+    if (total >= 133 && total <= 165) return 'House of Frog';
+    if (total >= 166 && total <= 198) return 'House of Theory';
+    if (total >= 199 && total <= 231) return 'House of Spectrum';
+    if (total >= 232 && total <= 264) return 'House of Clay';
+    if (total >= 265 && total <= 297) return 'House of Stencil';
+    if (total >= 298 && total <= 330) return 'House of Royal';
+    if (total >= 331 && total <= 363) return 'House of Shadows';
+    if (total >= 364 && total <= 385) return 'House of Hellish';
+    if (total >= 386 && total <= 392) return 'House of Hologram';
+    if (total >= 393 && total <= 395) return 'House of Gold';
+    if (total === 396) return 'House of Death';
+    return 'Unknown House';
 }
 
 // Claim Winion
