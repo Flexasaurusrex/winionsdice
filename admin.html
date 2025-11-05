@@ -3,11 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Winions Distribution Admin Panel</title>
-    
-    <!-- Ethers.js v6 -->
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
-    
+    <title>Winions Admin Panel</title>
     <style>
         * {
             margin: 0;
@@ -17,8 +13,8 @@
 
         body {
             font-family: 'Courier New', monospace;
-            background: #000000;
-            color: #ff1a1a;
+            background: #000;
+            color: #fff;
             padding: 20px;
             line-height: 1.6;
         }
@@ -29,95 +25,71 @@
         }
 
         h1 {
-            font-size: 48px;
             color: #ff1a1a;
             text-align: center;
+            font-size: 48px;
             margin-bottom: 10px;
-            text-shadow: 0 0 30px rgba(255, 26, 26, 0.8);
+            text-shadow: 0 0 20px rgba(255, 26, 26, 0.8);
         }
 
         .subtitle {
             text-align: center;
             color: #dd0000;
-            margin-bottom: 30px;
-            font-size: 14px;
+            margin-bottom: 40px;
         }
 
-        /* Admin Gate */
-        #adminGate {
-            max-width: 600px;
-            margin: 100px auto;
-        }
-
-        .gate-section {
-            background: rgba(0, 0, 0, 0.95);
-            border: 3px solid #ff1a1a;
-            border-radius: 15px;
-            padding: 50px;
+        .admin-gate {
             text-align: center;
-            box-shadow: 0 0 50px rgba(255, 26, 26, 0.5);
+            padding: 60px 20px;
         }
 
-        .gate-section h2 {
-            color: #ffffff;
-            margin-bottom: 30px;
-            font-size: 32px;
+        .connect-admin-btn {
+            background: rgba(255, 26, 26, 0.2);
+            border: 3px solid #ff1a1a;
+            color: #fff;
+            padding: 20px 60px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            border-radius: 5px;
+            transition: all 0.3s ease;
         }
 
-        .gate-section p {
-            color: #999;
-            margin-bottom: 30px;
+        .connect-admin-btn:hover {
+            background: rgba(255, 26, 26, 0.4);
+            box-shadow: 0 0 30px rgba(255, 26, 26, 0.6);
         }
 
-        /* Admin Panel */
-        #adminPanel {
+        .admin-panel {
             display: none;
         }
 
-        .section {
-            background: rgba(0, 0, 0, 0.95);
-            border: 3px solid #ff1a1a;
+        .status-bar {
+            background: rgba(255, 26, 26, 0.1);
+            border: 2px solid #ff1a1a;
+            padding: 20px;
             border-radius: 10px;
-            padding: 30px;
             margin-bottom: 30px;
-            box-shadow: 0 0 40px rgba(255, 26, 26, 0.3);
-        }
-
-        .section h2 {
-            color: #ffffff;
-            margin-bottom: 20px;
-            font-size: 24px;
-            border-bottom: 2px solid #ff1a1a;
-            padding-bottom: 10px;
-        }
-
-        /* Status Display */
-        .status-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 20px;
         }
 
         .status-item {
-            background: rgba(255, 26, 26, 0.1);
-            border: 2px solid #ff1a1a;
-            padding: 15px;
-            border-radius: 5px;
+            text-align: center;
         }
 
         .status-label {
             color: #999;
-            font-size: 12px;
+            font-size: 14px;
             margin-bottom: 5px;
-            text-transform: uppercase;
         }
 
         .status-value {
-            color: #00ff00;
+            color: #fff;
             font-size: 20px;
             font-weight: bold;
-            word-break: break-all;
         }
 
         .status-value.active {
@@ -125,10 +97,23 @@
         }
 
         .status-value.inactive {
-            color: #ff0000;
+            color: #ff4444;
         }
 
-        /* Form Elements */
+        .section {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #ff1a1a;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #ff1a1a;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
@@ -138,24 +123,17 @@
             color: #ff1a1a;
             margin-bottom: 8px;
             font-weight: bold;
-            font-size: 14px;
         }
 
-        input, select, textarea {
+        input, textarea, select {
             width: 100%;
             background: #1a1a1a;
             border: 2px solid #ff1a1a;
-            color: #ffffff;
+            color: #fff;
             padding: 12px;
             font-family: 'Courier New', monospace;
             font-size: 14px;
             border-radius: 5px;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: #ff4444;
-            box-shadow: 0 0 10px rgba(255, 26, 26, 0.5);
         }
 
         textarea {
@@ -163,111 +141,60 @@
             resize: vertical;
         }
 
-        /* Buttons */
-        button {
-            background: rgba(255, 26, 26, 0.2);
-            border: 2px solid #ff1a1a;
-            color: #ffffff;
-            padding: 15px 30px;
-            font-size: 16px;
-            font-weight: bold;
-            font-family: 'Courier New', monospace;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: all 0.3s ease;
-            width: 100%;
-            margin-top: 10px;
-        }
-
-        button:hover:not(:disabled) {
-            background: rgba(255, 26, 26, 0.4);
-            box-shadow: 0 0 20px rgba(255, 26, 26, 0.6);
-            transform: translateY(-2px);
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        button.primary {
-            background: rgba(0, 255, 0, 0.2);
-            border-color: #00ff00;
-        }
-
-        button.primary:hover:not(:disabled) {
-            background: rgba(0, 255, 0, 0.3);
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
-        }
-
-        button.warning {
-            background: rgba(255, 165, 0, 0.2);
-            border-color: orange;
-        }
-
-        button.warning:hover:not(:disabled) {
-            background: rgba(255, 165, 0, 0.3);
-            box-shadow: 0 0 20px rgba(255, 165, 0, 0.6);
-        }
-
-        /* Messages */
-        .help-text {
+        .helper-text {
             color: #999;
             font-size: 12px;
             margin-top: 5px;
         }
 
-        /* Activity Log */
-        .activity-log {
-            background: #0a0a0a;
+        .btn {
+            background: rgba(255, 26, 26, 0.2);
             border: 2px solid #ff1a1a;
+            color: #fff;
+            padding: 12px 30px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
             border-radius: 5px;
-            padding: 20px;
-            max-height: 400px;
-            overflow-y: auto;
-            font-size: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin-right: 10px;
         }
 
-        .log-entry {
-            padding: 8px;
-            margin-bottom: 5px;
-            border-left: 3px solid #666;
-            padding-left: 10px;
+        .btn:hover:not(:disabled) {
+            background: rgba(255, 26, 26, 0.4);
+            box-shadow: 0 0 20px rgba(255, 26, 26, 0.6);
         }
 
-        .log-entry.info {
-            border-left-color: #00aaff;
-            color: #00aaff;
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
-        .log-entry.success {
-            border-left-color: #00ff00;
-            color: #00ff00;
+        .btn-danger {
+            border-color: #ff4444;
         }
 
-        .log-entry.error {
-            border-left-color: #ff0000;
-            color: #ff0000;
+        .btn-success {
+            border-color: #00ff00;
         }
 
-        /* House Cards */
-        .house-grid {
+        .inventory-display {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
             margin-top: 20px;
         }
 
         .house-card {
-            background: rgba(255, 26, 26, 0.1);
+            background: rgba(255, 26, 26, 0.05);
             border: 2px solid #ff1a1a;
-            padding: 15px;
+            padding: 20px;
             border-radius: 5px;
-            text-align: center;
         }
 
         .house-name {
-            color: #ffffff;
+            color: #ff1a1a;
             font-weight: bold;
             margin-bottom: 10px;
         }
@@ -278,75 +205,219 @@
             font-weight: bold;
         }
 
-        /* Error Display */
-        .error-message {
-            background: rgba(255, 0, 0, 0.2);
-            border: 2px solid #ff0000;
-            color: #ff0000;
+        .log {
+            background: #1a1a1a;
+            border: 2px solid #ff1a1a;
             padding: 15px;
             border-radius: 5px;
-            margin-top: 10px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 8px;
+            border-bottom: 1px solid #333;
+            font-size: 14px;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-entry.success {
+            color: #00ff00;
+        }
+
+        .log-entry.error {
+            color: #ff4444;
+        }
+
+        .log-entry.info {
+            color: #4a90e2;
+        }
+
+        .price-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .whitelist-preview {
+            background: #1a1a1a;
+            border: 2px solid #ff1a1a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .whitelist-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid #333;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 32px;
+            }
+
+            .status-bar {
+                grid-template-columns: 1fr;
+            }
+
+            .price-grid, .inventory-display {
+                grid-template-columns: 1fr;
+            }
+
+            .quick-actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
         }
     </style>
+    
+    <!-- Ethers.js -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+    
+    <!-- Config & ABI -->
+    <script src="config.js"></script>
+    <script src="contract-abi.js"></script>
 </head>
 <body>
     <div class="container">
-        <!-- Admin Gate (Login Screen) -->
-        <div id="adminGate">
-            <div class="gate-section">
-                <h1>🔐</h1>
-                <h2>WINIONS ADMIN PANEL</h2>
-                <p>Connect your owner wallet to access admin functions</p>
-                <button id="connectAdminBtn" class="primary">Connect Wallet</button>
-                <div id="adminError" class="error-message" style="display: none;"></div>
-            </div>
+        <!-- Admin Gate -->
+        <div class="admin-gate" id="adminGate">
+            <h1>WINIONS ADMIN PANEL</h1>
+            <p class="subtitle">Connect your admin wallet to manage the contract</p>
+            <button class="connect-admin-btn" id="connectAdminBtn">CONNECT ADMIN WALLET</button>
+            <div id="adminError" style="margin-top: 20px; color: #ff4444;"></div>
         </div>
 
-        <!-- Main Admin Panel (Hidden until connected) -->
-        <div id="adminPanel">
-            <h1>🔴 WINIONS ADMIN PANEL</h1>
-            <p class="subtitle">Distribution Contract Management</p>
+        <!-- Admin Panel -->
+        <div class="admin-panel" id="adminPanel">
+            <h1>WINIONS ADMIN PANEL</h1>
+            <p class="subtitle">Contract Management Dashboard</p>
 
-            <!-- Status Overview -->
-            <div class="section">
-                <h2>📊 Contract Status</h2>
-                <div class="status-grid">
-                    <div class="status-item">
-                        <div class="status-label">Admin Wallet</div>
-                        <div class="status-value" id="adminWallet" style="font-size: 14px;">-</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Distribution Status</div>
-                        <div class="status-value" id="distributionStatus">-</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Contract Balance</div>
-                        <div class="status-value" id="contractBalance">-</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Total NFTs in Contract</div>
-                        <div class="status-value" id="totalNFTs">-</div>
-                    </div>
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-label">Distribution Status</div>
+                    <div class="status-value" id="distributionStatus">...</div>
                 </div>
-                <button onclick="refreshStatus()">🔄 Refresh Status</button>
+                <div class="status-item">
+                    <div class="status-label">Contract Balance</div>
+                    <div class="status-value" id="contractBalance">...</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Total NFTs in Contract</div>
+                    <div class="status-value" id="totalNFTs">...</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Admin Wallet</div>
+                    <div class="status-value" id="adminWallet">...</div>
+                </div>
             </div>
 
-            <!-- Inventory Management -->
+            <!-- Quick Actions -->
             <div class="section">
-                <h2>🏠 House Inventory Management</h2>
-                
-                <button onclick="loadInventory()" style="margin-bottom: 20px;">📦 View All House Inventories</button>
-                
-                <div id="inventoryDisplay" class="house-grid"></div>
+                <h2>⚡ Quick Actions</h2>
+                <div class="quick-actions">
+                    <button class="btn btn-success" id="toggleDistBtn" onclick="toggleDistribution()">
+                        <span id="toggleDistText">🔄 Activate Distribution</span>
+                    </button>
+                    <button class="btn" onclick="refreshStatus()">
+                        🔃 Refresh All Data
+                    </button>
+                    <button class="btn" onclick="withdrawETH()">
+                        💰 Withdraw ETH
+                    </button>
+                    <button class="btn btn-danger" onclick="viewOnEtherscan()">
+                        🔍 View on Etherscan
+                    </button>
+                </div>
+            </div>
 
-                <hr style="border: 1px solid #ff1a1a; margin: 30px 0;">
-
-                <h3 style="color: #fff; margin-bottom: 15px;">➕ Add NFTs to House</h3>
+            <!-- Transfer NFTs to Contract -->
+            <div class="section">
+                <h2>🔄 Transfer NFTs to Contract</h2>
+                <p style="color: #ccc; margin-bottom: 20px;">Transfer NFTs from your wallet to the distribution contract before adding them to house inventory.</p>
                 
+                <h3 style="color: #ff1a1a; margin-top: 20px;">Single Transfer</h3>
                 <div class="form-group">
-                    <label>Select House:</label>
+                    <label>Token ID to Transfer:</label>
+                    <input type="number" id="singleTransferTokenId" placeholder="1">
+                </div>
+                <button class="btn" onclick="transferSingleNFT()">Transfer Single NFT</button>
+
+                <h3 style="color: #ff1a1a; margin-top: 40px;">Batch Transfer</h3>
+                <div class="form-group">
+                    <label>Token IDs (comma-separated):</label>
+                    <textarea id="batchTransferTokenIds" placeholder="1, 2, 3, 4, 5"></textarea>
+                    <div class="helper-text">Enter token IDs separated by commas. Each will be transferred in a separate transaction.</div>
+                </div>
+                <button class="btn" onclick="batchTransferNFTs()">Batch Transfer NFTs</button>
+                
+                <div id="transferProgress" style="margin-top: 20px; display: none;">
+                    <div style="background: rgba(255, 26, 26, 0.1); border: 2px solid #ff1a1a; padding: 15px; border-radius: 5px;">
+                        <strong style="color: #ff1a1a;">Transfer Progress:</strong>
+                        <div id="transferStatus" style="color: #00ff00; margin-top: 10px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Lookup -->
+            <div class="section">
+                <h2>👤 User Lookup & Management</h2>
+                <div class="form-group">
+                    <label>Lookup User's Rolls:</label>
+                    <input type="text" id="lookupAddress" placeholder="0x...">
+                    <button class="btn" onclick="lookupUser()" style="margin-top: 10px;">Check User</button>
+                </div>
+                <div id="userLookupResult" style="margin-top: 20px; display: none;">
+                    <div style="background: rgba(255, 26, 26, 0.1); border: 2px solid #ff1a1a; padding: 20px; border-radius: 5px;">
+                        <h3 style="color: #ff1a1a; margin-bottom: 15px;">User Status</h3>
+                        <p><strong>Address:</strong> <span id="lookupAddr"></span></p>
+                        <p><strong>Free Rolls:</strong> <span id="lookupFree" style="color: #00ff00;"></span></p>
+                        <p><strong>Purchased Rolls:</strong> <span id="lookupPaid" style="color: #4a90e2;"></span></p>
+                        <p><strong>Total Rolls:</strong> <span id="lookupTotal" style="color: #ffd700;"></span></p>
+                        <div style="margin-top: 15px;">
+                            <button class="btn" onclick="updateUserWhitelist()">Update Free Rolls</button>
+                            <button class="btn btn-danger" onclick="removeFromWhitelist()">Remove from Whitelist</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- House Inventory -->
+            <div class="section">
+                <h2>🏠 House Inventory Status</h2>
+                <button class="btn" onclick="loadInventory()">Load Inventory</button>
+                <div class="inventory-display" id="inventoryDisplay"></div>
+            </div>
+
+            <!-- Add NFTs to House -->
+            <div class="section">
+                <h2>📦 Add NFTs to House Inventory</h2>
+                <div class="form-group">
+                    <label>House Name:</label>
                     <select id="houseSelect">
-                        <option value="">-- Select a House --</option>
+                        <option value="">-- Select House --</option>
                         <option value="House of Havoc">House of Havoc</option>
                         <option value="House of Misfits">House of Misfits</option>
                         <option value="House of Frog">House of Frog</option>
@@ -362,108 +433,105 @@
                         <option value="House of Death">House of Death</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>Token IDs (comma-separated):</label>
-                    <textarea id="tokenIds" placeholder="14, 19, 21, 23, 30, 33, ..."></textarea>
-                    <div class="help-text">⚠️ Make sure the contract owns these NFTs first! Transfer them before adding.</div>
+                    <textarea id="tokenIds" placeholder="1, 2, 3, 45, 67, 89"></textarea>
+                    <div class="helper-text">Enter token IDs separated by commas. Make sure the contract owns these NFTs first!</div>
                 </div>
-
-                <button onclick="addToHouseInventory()" class="primary">🏠 Add to House Inventory</button>
+                <button class="btn" onclick="addToHouseInventory()">Add to Inventory</button>
             </div>
 
-            <!-- Whitelist Management -->
+            <!-- Manage Whitelist -->
             <div class="section">
-                <h2>📋 Whitelist Management</h2>
+                <h2>📝 Manage Whitelist</h2>
                 
-                <h3 style="color: #fff; margin-bottom: 15px;">Add Single Address</h3>
-                
+                <h3 style="margin-top: 20px; color: #ff1a1a;">Add Single Address</h3>
                 <div class="form-group">
                     <label>Wallet Address:</label>
                     <input type="text" id="whitelistAddress" placeholder="0x...">
                 </div>
-
                 <div class="form-group">
                     <label>Free Rolls:</label>
-                    <input type="number" id="freeRolls" placeholder="3" min="0">
+                    <input type="number" id="freeRolls" min="1" value="3">
                 </div>
+                <button class="btn" onclick="addSingleToWhitelist()">Add to Whitelist</button>
 
-                <button onclick="addSingleToWhitelist()" class="primary">➕ Add to Whitelist</button>
-
-                <hr style="border: 1px solid #ff1a1a; margin: 30px 0;">
-
-                <h3 style="color: #fff; margin-bottom: 15px;">Batch Add Addresses</h3>
+                <h3 style="margin-top: 40px; color: #ff1a1a;">Batch Add Addresses</h3>
+                <div class="form-group">
+                    <label>Addresses & Rolls (one per line):</label>
+                    <textarea id="batchWhitelist" placeholder="0xAddress1, 3&#10;0xAddress2, 5&#10;0xAddress3, 2" style="min-height: 150px;"></textarea>
+                    <div class="helper-text">Format: address, rolls (one per line). You can add up to 50 addresses at once.</div>
+                </div>
+                <button class="btn" onclick="batchAddToWhitelist()">Batch Add to Whitelist</button>
                 
+                <h3 style="margin-top: 40px; color: #ff1a1a;">Bulk Remove from Whitelist</h3>
                 <div class="form-group">
-                    <label>Batch Input (one per line: address, rolls):</label>
-                    <textarea id="batchWhitelist" placeholder="0x1234..., 3
-0x5678..., 5
-0x9abc..., 10"></textarea>
-                    <div class="help-text">Format: address, number of rolls (one per line)</div>
+                    <label>Addresses to Remove (one per line):</label>
+                    <textarea id="batchRemoveWhitelist" placeholder="0xAddress1&#10;0xAddress2&#10;0xAddress3" style="min-height: 100px;"></textarea>
+                    <div class="helper-text">List addresses to set their free rolls to 0</div>
                 </div>
-
-                <button onclick="batchAddToWhitelist()" class="primary">➕ Batch Add to Whitelist</button>
+                <button class="btn btn-danger" onclick="batchRemoveFromWhitelist()">Batch Remove from Whitelist</button>
             </div>
 
-            <!-- Price Management -->
+            <!-- Update Prices -->
             <div class="section">
-                <h2>💰 Price Management</h2>
+                <h2>💰 Update Roll Prices</h2>
                 
-                <div id="currentPrices" style="background: rgba(255,26,26,0.1); padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #00ff00;">
-                    Loading prices...
+                <div style="margin-bottom: 30px; padding: 15px; background: rgba(255, 26, 26, 0.1); border: 2px solid #ff1a1a; border-radius: 5px;">
+                    <strong style="color: #ff1a1a;">Current Prices:</strong><br>
+                    <span id="currentPrices">Loading...</span>
                 </div>
-
-                <div class="form-group">
-                    <label>Single Roll Price (ETH):</label>
-                    <input type="text" id="singlePrice" placeholder="0.0111">
+                
+                <h3 style="color: #ff1a1a; margin-bottom: 20px;">Individual Price Updates</h3>
+                <div class="price-grid">
+                    <div class="form-group">
+                        <label>Single Roll (ETH):</label>
+                        <input type="text" id="singlePrice" placeholder="0.0111">
+                        <button class="btn" onclick="updateSinglePrice()" style="margin-top: 10px; width: 100%;">Update Single</button>
+                    </div>
+                    <div class="form-group">
+                        <label>3-Roll Pack (ETH):</label>
+                        <input type="text" id="threePrice" placeholder="0.03">
+                        <button class="btn" onclick="updateThreePrice()" style="margin-top: 10px; width: 100%;">Update 3-Pack</button>
+                    </div>
+                    <div class="form-group">
+                        <label>5-Roll Pack (ETH):</label>
+                        <input type="text" id="fivePrice" placeholder="0.045">
+                        <button class="btn" onclick="updateFivePrice()" style="margin-top: 10px; width: 100%;">Update 5-Pack</button>
+                    </div>
                 </div>
-                <button onclick="updateSinglePrice()">Update Single Price</button>
-
-                <div class="form-group">
-                    <label>3-Roll Pack Price (ETH):</label>
-                    <input type="text" id="threePrice" placeholder="0.03">
+                
+                <h3 style="color: #ff1a1a; margin: 30px 0 20px;">Bulk Price Update</h3>
+                <p style="color: #ccc; margin-bottom: 20px;">Update all prices at once (saves on gas if updating multiple)</p>
+                <div class="price-grid">
+                    <div class="form-group">
+                        <label>Single Roll (ETH):</label>
+                        <input type="text" id="bulkSinglePrice" placeholder="0.0111">
+                    </div>
+                    <div class="form-group">
+                        <label>3-Roll Pack (ETH):</label>
+                        <input type="text" id="bulkThreePrice" placeholder="0.03">
+                    </div>
+                    <div class="form-group">
+                        <label>5-Roll Pack (ETH):</label>
+                        <input type="text" id="bulkFivePrice" placeholder="0.045">
+                    </div>
                 </div>
-                <button onclick="updateThreePrice()">Update 3-Roll Price</button>
-
-                <div class="form-group">
-                    <label>5-Roll Pack Price (ETH):</label>
-                    <input type="text" id="fivePrice" placeholder="0.045">
-                </div>
-                <button onclick="updateFivePrice()">Update 5-Roll Price</button>
-            </div>
-
-            <!-- Distribution Toggle -->
-            <div class="section">
-                <h2>🔄 Distribution Control</h2>
-                <p style="color: #999; margin-bottom: 20px;">Enable or disable the distribution system. When disabled, users cannot purchase rolls or claim NFTs.</p>
-                <button onclick="toggleDistribution()" class="warning">🔄 Toggle Distribution Status</button>
-            </div>
-
-            <!-- Financial Management -->
-            <div class="section">
-                <h2>💰 Financial Management</h2>
-                <button onclick="withdrawETH()" class="primary">💰 Withdraw All ETH from Contract</button>
+                <button class="btn btn-success" onclick="bulkUpdatePrices()" style="margin-top: 15px;">Update All Prices (3 transactions)</button>
             </div>
 
             <!-- Emergency Functions -->
             <div class="section">
                 <h2>🚨 Emergency Functions</h2>
-                <p style="color: #999; margin-bottom: 20px;">⚠️ Use these functions only in emergencies!</p>
-                
                 <div class="form-group">
-                    <label>Emergency Withdraw Single NFT:</label>
+                    <label>Withdraw Single NFT by Token ID:</label>
                     <input type="number" id="emergencyTokenId" placeholder="Token ID">
+                    <button class="btn btn-danger" onclick="emergencyWithdrawNFT()" style="margin-top: 10px;">Withdraw NFT</button>
                 </div>
-                <button onclick="emergencyWithdrawNFT()" style="background: rgba(255,0,0,0.2); border-color: #ff0000;">
-                    🚨 Emergency Withdraw NFT
-                </button>
-
-                <hr style="border: 1px solid #ff1a1a; margin: 20px 0;">
-
-                <div class="form-group">
-                    <label>Emergency Withdraw Entire House:</label>
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Withdraw All NFTs from House:</label>
                     <select id="emergencyHouse">
-                        <option value="">-- Select a House --</option>
+                        <option value="">-- Select House --</option>
                         <option value="House of Havoc">House of Havoc</option>
                         <option value="House of Misfits">House of Misfits</option>
                         <option value="House of Frog">House of Frog</option>
@@ -478,41 +546,20 @@
                         <option value="House of Gold">House of Gold</option>
                         <option value="House of Death">House of Death</option>
                     </select>
+                    <button class="btn btn-danger" onclick="emergencyWithdrawHouse()" style="margin-top: 10px;">Withdraw House</button>
                 </div>
-                <button onclick="emergencyWithdrawHouse()" style="background: rgba(255,0,0,0.2); border-color: #ff0000;">
-                    🚨 Emergency Withdraw House
-                </button>
-            </div>
-
-            <!-- Contract Info -->
-            <div class="section">
-                <h2>🔗 Contract Information</h2>
-                <div class="status-grid">
-                    <div class="status-item">
-                        <div class="status-label">Distribution Contract</div>
-                        <div class="status-value" style="font-size: 12px;" id="distContractAddr">-</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Winions NFT Contract</div>
-                        <div class="status-value" style="font-size: 12px;" id="nftContractAddr">-</div>
-                    </div>
-                </div>
-                <button onclick="viewOnEtherscan()">🔍 View on Etherscan</button>
             </div>
 
             <!-- Activity Log -->
             <div class="section">
-                <h2>📜 Activity Log</h2>
-                <div id="activityLog" class="activity-log">
+                <h2>📋 Activity Log</h2>
+                <div class="log" id="activityLog">
                     <div class="log-entry info">Admin panel loaded</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Load scripts in correct order -->
-    <script src="config.js"></script>
-    <script src="contract-abi.js"></script>
     <script src="admin-script.js"></script>
 </body>
 </html>
