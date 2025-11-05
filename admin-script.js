@@ -1,18 +1,22 @@
 // Winions Admin Panel Script
-// Contract: Uses CONFIG.DISTRIBUTION_CONTRACT from config.js
+// Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
 let provider;
 let signer;
 let adminAddress;
 let distributionContract;
+let winionsNFTContract;
+
+const WINIONS_NFT_ADDRESS = "0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733";
+const WINIONS_NFT_ABI = [
+    "function safeTransferFrom(address from, address to, uint256 tokenId) external",
+    "function ownerOf(uint256 tokenId) external view returns (address)",
+    "function balanceOf(address owner) external view returns (uint256)"
+];
 
 // Initialize
 window.addEventListener('load', () => {
     document.getElementById('connectAdminBtn').addEventListener('click', connectAdmin);
-    
-    // Display contract addresses
-    document.getElementById('distContractAddr').textContent = CONFIG.DISTRIBUTION_CONTRACT;
-    document.getElementById('nftContractAddr').textContent = CONFIG.WINIONS_NFT_CONTRACT;
 });
 
 // Log Activity
@@ -54,17 +58,20 @@ async function connectAdmin() {
             signer
         );
         
+        winionsNFTContract = new ethers.Contract(
+            WINIONS_NFT_ADDRESS,
+            WINIONS_NFT_ABI,
+            signer
+        );
+        
         // Check if user is owner
         const owner = await distributionContract.owner();
         
         if (adminAddress.toLowerCase() !== owner.toLowerCase()) {
-            const errorMsg = 'You are not the contract owner!';
-            document.getElementById('adminError').textContent = errorMsg;
-            document.getElementById('adminError').style.display = 'block';
-            throw new Error(errorMsg);
+            throw new Error('You are not the contract owner!');
         }
         
-        log('✅ Admin wallet connected successfully', 'success');
+        log('Admin wallet connected successfully', 'success');
         
         // Show admin panel
         document.getElementById('adminGate').style.display = 'none';
@@ -76,9 +83,7 @@ async function connectAdmin() {
         
     } catch (error) {
         console.error('Admin connection error:', error);
-        const errorEl = document.getElementById('adminError');
-        errorEl.textContent = error.message;
-        errorEl.style.display = 'block';
+        document.getElementById('adminError').textContent = error.message;
         log(`Connection error: ${error.message}`, 'error');
     }
 }
@@ -91,7 +96,7 @@ async function refreshStatus() {
         // Distribution status
         const isActive = await distributionContract.distributionActive();
         const statusEl = document.getElementById('distributionStatus');
-        statusEl.textContent = isActive ? 'ACTIVE ✅' : 'INACTIVE ❌';
+        statusEl.textContent = isActive ? 'ACTIVE' : 'INACTIVE';
         statusEl.className = `status-value ${isActive ? 'active' : 'inactive'}`;
         
         // Contract balance
@@ -112,11 +117,11 @@ async function refreshStatus() {
         }
         document.getElementById('totalNFTs').textContent = totalNFTs;
         
-        log('✅ Status refreshed', 'success');
+        log('Status refreshed', 'success');
         
     } catch (error) {
         console.error('Refresh error:', error);
-        log(`❌ Refresh error: ${error.message}`, 'error');
+        log(`Refresh error: ${error.message}`, 'error');
     }
 }
 
@@ -141,11 +146,23 @@ async function loadInventory() {
             inventoryDisplay.appendChild(card);
         }
         
-        log('✅ Inventory loaded', 'success');
+        log('Inventory loaded', 'success');
         
     } catch (error) {
         console.error('Load inventory error:', error);
-        log(`❌ Load inventory error: ${error.message}`, 'error');
+        log(`Load inventory error: ${error.message}`, 'error');
+    }
+}
+
+// Check NFT Ownership
+async function checkNFTOwnership() {
+    try {
+        const balance = await winionsNFTContract.balanceOf(adminAddress);
+        log(`You own ${balance} Winions NFTs`, 'info');
+        return Number(balance);
+    } catch (error) {
+        console.error('Check ownership error:', error);
+        return 0;
     }
 }
 
@@ -160,40 +177,31 @@ async function addToHouseInventory() {
             return;
         }
         
-        if (!tokenIdsText.trim()) {
+        if (!tokenIdsText) {
             alert('Please enter token IDs');
             return;
         }
         
-        // Parse token IDs - PROPERLY FIXED
+        // Parse token IDs - FIXED VERSION
         const tokenIds = tokenIdsText
-            .split(',')                      // Split by comma
-            .map(id => id.trim())            // Remove whitespace
-            .filter(id => id.length > 0)     // Remove empty strings
-            .map(id => {
-                const num = parseInt(id, 10);
-                if (isNaN(num)) {
-                    log(`⚠️ Warning: "${id}" is not a valid number, skipping`, 'error');
-                }
-                return num;
-            })
-            .filter(id => !isNaN(id));       // Remove NaN values
+            .split(',')
+            .map(id => id.trim())
+            .filter(id => id)
+            .map(id => parseInt(id, 10))      // FIXED: Added base-10
+            .filter(id => !isNaN(id));        // FIXED: Filter out NaN values
         
         if (tokenIds.length === 0) {
-            alert('No valid token IDs found. Please check your input.');
-            log('❌ No valid token IDs found', 'error');
+            alert('No valid token IDs found');
             return;
         }
         
-        console.log('Parsed token IDs:', tokenIds);
-        log(`Parsed ${tokenIds.length} token IDs`, 'info');
+        console.log('Parsed token IDs:', tokenIds); // Debug log
         
         log(`Adding ${tokenIds.length} NFTs to ${houseName}...`, 'info');
         
         const tx = await distributionContract.addToHouseInventory(houseName, tokenIds);
         
         log('Transaction sent, waiting for confirmation...', 'info');
-        log(`TX Hash: ${tx.hash}`, 'info');
         
         await tx.wait();
         
@@ -211,10 +219,8 @@ async function addToHouseInventory() {
         
         if (error.message.includes('Contract does not own this token')) {
             log('❌ Error: Contract does not own one or more of these tokens. Transfer them first!', 'error');
-            alert('Error: Contract does not own one or more of these tokens. Please transfer them to the contract first!');
         } else {
             log(`❌ Error: ${error.message}`, 'error');
-            alert(`Error: ${error.message}`);
         }
     }
 }
@@ -230,11 +236,6 @@ async function addSingleToWhitelist() {
             return;
         }
         
-        if (!rolls || rolls < 0) {
-            alert('Please enter a valid number of rolls');
-            return;
-        }
-        
         log(`Adding ${address} to whitelist with ${rolls} rolls...`, 'info');
         
         const tx = await distributionContract.updateWhitelist(address, rolls);
@@ -247,12 +248,10 @@ async function addSingleToWhitelist() {
         
         // Clear form
         document.getElementById('whitelistAddress').value = '';
-        document.getElementById('freeRolls').value = '';
         
     } catch (error) {
         console.error('Whitelist error:', error);
         log(`❌ Error: ${error.message}`, 'error');
-        alert(`Error: ${error.message}`);
     }
 }
 
@@ -261,7 +260,7 @@ async function batchAddToWhitelist() {
     try {
         const batchText = document.getElementById('batchWhitelist').value;
         
-        if (!batchText.trim()) {
+        if (!batchText) {
             alert('Please enter addresses and rolls');
             return;
         }
@@ -279,8 +278,6 @@ async function batchAddToWhitelist() {
             if (ethers.isAddress(address)) {
                 addresses.push(address);
                 rolls.push(parseInt(rollCount));
-            } else {
-                log(`⚠️ Invalid address skipped: ${address}`, 'error');
             }
         }
         
@@ -305,7 +302,6 @@ async function batchAddToWhitelist() {
     } catch (error) {
         console.error('Batch whitelist error:', error);
         log(`❌ Error: ${error.message}`, 'error');
-        alert(`Error: ${error.message}`);
     }
 }
 
@@ -315,7 +311,6 @@ async function loadPrices() {
         const [single, three, five] = await distributionContract.getPrices();
         
         document.getElementById('currentPrices').innerHTML = `
-            <strong>Current Prices:</strong><br>
             1 Roll: ${ethers.formatEther(single)} ETH<br>
             3 Rolls: ${ethers.formatEther(three)} ETH<br>
             5 Rolls: ${ethers.formatEther(five)} ETH
@@ -323,7 +318,6 @@ async function loadPrices() {
         
     } catch (error) {
         console.error('Load prices error:', error);
-        log(`❌ Load prices error: ${error.message}`, 'error');
     }
 }
 
@@ -346,12 +340,10 @@ async function updateSinglePrice() {
         log(`✅ Single roll price updated to ${priceETH} ETH`, 'success');
         
         await loadPrices();
-        document.getElementById('singlePrice').value = '';
         
     } catch (error) {
         console.error('Update price error:', error);
         log(`❌ Error: ${error.message}`, 'error');
-        alert(`Error: ${error.message}`);
     }
 }
 
@@ -374,12 +366,10 @@ async function updateThreePrice() {
         log(`✅ 3-roll price updated to ${priceETH} ETH`, 'success');
         
         await loadPrices();
-        document.getElementById('threePrice').value = '';
         
     } catch (error) {
         console.error('Update price error:', error);
         log(`❌ Error: ${error.message}`, 'error');
-        alert(`Error: ${error.message}`);
     }
 }
 
@@ -402,21 +392,17 @@ async function updateFivePrice() {
         log(`✅ 5-roll price updated to ${priceETH} ETH`, 'success');
         
         await loadPrices();
-        document.getElementById('fivePrice').value = '';
         
     } catch (error) {
         console.error('Update price error:', error);
         log(`❌ Error: ${error.message}`, 'error');
-        alert(`Error: ${error.message}`);
     }
 }
 
 // Toggle Distribution
 async function toggleDistribution() {
     try {
-        const currentStatus = document.getElementById('distributionStatus').textContent;
-        
-        if (!confirm(`Are you sure you want to toggle distribution? Current status: ${currentStatus}`)) {
+        if (!confirm('Are you sure you want to toggle distribution status?')) {
             return;
         }
         
@@ -435,7 +421,6 @@ async function toggleDistribution() {
     } catch (error) {
         console.error('Toggle error:', error);
         log(`❌ Error: ${error.message}`, 'error');
-        alert(`Error: ${error.message}`);
     }
 }
 
@@ -469,7 +454,6 @@ async function withdrawETH() {
     } catch (error) {
         console.error('Withdraw error:', error);
         log(`❌ Error: ${error.message}`, 'error');
-        alert(`Error: ${error.message}`);
     }
 }
 
@@ -497,15 +481,12 @@ async function emergencyWithdrawNFT() {
         
         log(`✅ Emergency withdrew token #${tokenId}`, 'success');
         
-        document.getElementById('emergencyTokenId').value = '';
-        
         await refreshStatus();
         await loadInventory();
         
     } catch (error) {
         console.error('Emergency withdraw error:', error);
         log(`❌ Error: ${error.message}`, 'error');
-        alert(`Error: ${error.message}`);
     }
 }
 
@@ -533,32 +514,157 @@ async function emergencyWithdrawHouse() {
         
         log(`✅ Emergency withdrew all NFTs from ${houseName}`, 'success');
         
-        document.getElementById('emergencyHouse').value = '';
-        
         await refreshStatus();
         await loadInventory();
         
     } catch (error) {
         console.error('Emergency withdraw error:', error);
         log(`❌ Error: ${error.message}`, 'error');
-        alert(`Error: ${error.message}`);
+    }
+}
+
+// Transfer Single NFT to Contract
+async function transferSingleNFT() {
+    try {
+        const tokenId = document.getElementById('singleTransferTokenId').value;
+        
+        if (!tokenId) {
+            alert('Please enter a token ID');
+            return;
+        }
+        
+        // Check ownership
+        const owner = await winionsNFTContract.ownerOf(tokenId);
+        if (owner.toLowerCase() !== adminAddress.toLowerCase()) {
+            alert(`You don't own token #${tokenId}. Current owner: ${owner}`);
+            return;
+        }
+        
+        log(`Transferring token #${tokenId} to contract...`, 'info');
+        
+        const tx = await winionsNFTContract.safeTransferFrom(
+            adminAddress,
+            CONFIG.DISTRIBUTION_CONTRACT,
+            tokenId
+        );
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Successfully transferred token #${tokenId} to contract`, 'success');
+        
+        // Clear input
+        document.getElementById('singleTransferTokenId').value = '';
+        
+        await refreshStatus();
+        
+    } catch (error) {
+        console.error('Transfer error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+// Batch Transfer NFTs to Contract
+async function batchTransferNFTs() {
+    try {
+        const tokenIdsText = document.getElementById('batchTransferTokenIds').value;
+        
+        if (!tokenIdsText) {
+            alert('Please enter token IDs');
+            return;
+        }
+        
+        // Parse token IDs
+        const tokenIds = tokenIdsText
+            .split(',')
+            .map(id => id.trim())
+            .filter(id => id)
+            .map(id => parseInt(id, 10))
+            .filter(id => !isNaN(id));
+        
+        if (tokenIds.length === 0) {
+            alert('No valid token IDs found');
+            return;
+        }
+        
+        if (!confirm(`Transfer ${tokenIds.length} NFTs to the contract? This will execute ${tokenIds.length} transactions.`)) {
+            return;
+        }
+        
+        // Show progress
+        document.getElementById('transferProgress').style.display = 'block';
+        const statusDiv = document.getElementById('transferStatus');
+        
+        let successful = 0;
+        let failed = 0;
+        
+        for (let i = 0; i < tokenIds.length; i++) {
+            const tokenId = tokenIds[i];
+            
+            try {
+                statusDiv.innerHTML = `Transferring ${i + 1}/${tokenIds.length}: Token #${tokenId}...`;
+                
+                // Check ownership
+                const owner = await winionsNFTContract.ownerOf(tokenId);
+                if (owner.toLowerCase() !== adminAddress.toLowerCase()) {
+                    log(`⚠️ Skipping token #${tokenId} - you don't own it`, 'error');
+                    failed++;
+                    continue;
+                }
+                
+                const tx = await winionsNFTContract.safeTransferFrom(
+                    adminAddress,
+                    CONFIG.DISTRIBUTION_CONTRACT,
+                    tokenId
+                );
+                
+                await tx.wait();
+                
+                log(`✅ Transferred token #${tokenId}`, 'success');
+                successful++;
+                
+                // Small delay between transactions
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+            } catch (error) {
+                console.error(`Error transferring token #${tokenId}:`, error);
+                log(`❌ Failed to transfer token #${tokenId}: ${error.message}`, 'error');
+                failed++;
+            }
+        }
+        
+        statusDiv.innerHTML = `
+            <strong>Transfer Complete!</strong><br>
+            ✅ Successful: ${successful}<br>
+            ${failed > 0 ? `❌ Failed: ${failed}<br>` : ''}
+        `;
+        
+        log(`Batch transfer complete: ${successful} successful, ${failed} failed`, 'success');
+        
+        // Clear input
+        document.getElementById('batchTransferTokenIds').value = '';
+        
+        await refreshStatus();
+        
+    } catch (error) {
+        console.error('Batch transfer error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
     }
 }
 
 // View on Etherscan
 function viewOnEtherscan() {
-    window.open(`https://etherscan.io/address/${CONFIG.DISTRIBUTION_CONTRACT}`, '_blank');
+    window.open(`${CONFIG.ETHERSCAN_URL}/address/${CONFIG.DISTRIBUTION_CONTRACT}`, '_blank');
 }
 
 // Handle account/network changes
 if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
-        log('⚠️ Account changed, reloading...', 'info');
-        setTimeout(() => location.reload(), 1000);
+        location.reload();
     });
     
     window.ethereum.on('chainChanged', () => {
-        log('⚠️ Network changed, reloading...', 'info');
-        setTimeout(() => location.reload(), 1000);
+        location.reload();
     });
 }
