@@ -802,6 +802,157 @@ async function batchTransferNFTs() {
     }
 }
 
+// Check Contract's NFT Holdings
+async function checkContractNFTs() {
+    try {
+        log('Checking contract NFT holdings...', 'info');
+        
+        document.getElementById('contractNFTResults').style.display = 'block';
+        document.getElementById('contractNFTList').innerHTML = '<p style="color: #00ff00;">Scanning blockchain...</p>';
+        
+        const contractAddress = CONFIG.DISTRIBUTION_CONTRACT;
+        const balance = await winionsNFTContract.balanceOf(contractAddress);
+        const balanceNum = Number(balance);
+        
+        if (balanceNum === 0) {
+            document.getElementById('contractNFTList').innerHTML = '<p style="color: #ff4444;">Contract doesn\'t own any Winions NFTs yet. Transfer some first!</p>';
+            return;
+        }
+        
+        log(`Found ${balanceNum} Winions in the contract`, 'success');
+        
+        // Get all token IDs owned by contract
+        const ownedTokens = [];
+        
+        // Check tokens 1-666
+        document.getElementById('contractNFTList').innerHTML = '<p style="color: #00ff00;">Checking tokens 1-666... This may take a minute...</p>';
+        
+        for (let tokenId = 1; tokenId <= 666; tokenId++) {
+            try {
+                const owner = await winionsNFTContract.ownerOf(tokenId);
+                if (owner.toLowerCase() === contractAddress.toLowerCase()) {
+                    ownedTokens.push(tokenId);
+                }
+            } catch (error) {
+                // Token doesn't exist or error, skip
+            }
+            
+            // Update progress every 50 tokens
+            if (tokenId % 50 === 0) {
+                document.getElementById('contractNFTList').innerHTML = `<p style="color: #00ff00;">Checking tokens... ${tokenId}/666</p>`;
+            }
+        }
+        
+        // Sort tokens
+        ownedTokens.sort((a, b) => a - b);
+        
+        // Group by house
+        const byHouse = {};
+        for (const tokenId of ownedTokens) {
+            const house = TOKEN_TO_HOUSE[tokenId] || 'Unknown House';
+            if (!byHouse[house]) {
+                byHouse[house] = [];
+            }
+            byHouse[house].push(tokenId);
+        }
+        
+        // Display table of all NFTs
+        let html = '<div style="max-height: 400px; overflow-y: auto;">';
+        html += '<table style="width: 100%; border-collapse: collapse;">';
+        html += '<thead><tr style="border-bottom: 2px solid #ff1a1a; position: sticky; top: 0; background: #000;">';
+        html += '<th style="text-align: left; padding: 10px; color: #ff1a1a;">Token ID</th>';
+        html += '<th style="text-align: left; padding: 10px; color: #ff1a1a;">House</th>';
+        html += '</tr></thead><tbody>';
+        
+        for (const tokenId of ownedTokens) {
+            const house = TOKEN_TO_HOUSE[tokenId] || 'Unknown';
+            html += `<tr style="border-bottom: 1px solid #333;">`;
+            html += `<td style="padding: 10px; color: #00ff00; font-weight: bold;">#${tokenId}</td>`;
+            html += `<td style="padding: 10px; color: #fff;">${house}</td>`;
+            html += `</tr>`;
+        }
+        
+        html += '</tbody></table></div>';
+        
+        document.getElementById('contractNFTList').innerHTML = html;
+        
+        // Summary with copy/paste arrays by house
+        let summary = `<h3 style="color: #00ff00; margin-bottom: 15px;">Total: ${ownedTokens.length} NFTs in Contract</h3>`;
+        
+        summary += `<div style="border-top: 2px solid #ff1a1a; padding-top: 20px; margin-top: 20px;">`;
+        summary += `<h3 style="color: #ff1a1a; margin-bottom: 15px;">📋 Ready to Add to House Inventories</h3>`;
+        summary += `<p style="color: #ccc; margin-bottom: 15px;">Copy the arrays below and paste into "Add NFTs to House Inventory" section:</p>`;
+        
+        // Sort houses by number of NFTs (most to least)
+        const sortedHouses = Object.entries(byHouse).sort((a, b) => b[1].length - a[1].length);
+        
+        for (const [house, tokens] of sortedHouses) {
+            summary += `<div style="background: rgba(255, 26, 26, 0.05); border: 2px solid #ff1a1a; padding: 20px; border-radius: 5px; margin-bottom: 20px;">`;
+            summary += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">`;
+            summary += `<strong style="color: #ff1a1a; font-size: 18px;">${house}</strong>`;
+            summary += `<span style="color: #00ff00; font-size: 20px; font-weight: bold;">${tokens.length} NFTs</span>`;
+            summary += `</div>`;
+            
+            summary += `<div style="margin-bottom: 10px;">`;
+            summary += `<label style="color: #999; font-size: 12px; display: block; margin-bottom: 5px;">House Name (copy this):</label>`;
+            summary += `<input type="text" value="${house}" readonly style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #ff1a1a; color: #fff; font-family: 'Courier New', monospace; margin-bottom: 10px;" onclick="this.select()">`;
+            summary += `</div>`;
+            
+            summary += `<div>`;
+            summary += `<label style="color: #999; font-size: 12px; display: block; margin-bottom: 5px;">Token IDs (copy this):</label>`;
+            summary += `<textarea readonly style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #00ff00; color: #00ff00; font-family: 'Courier New', monospace; min-height: 60px; resize: vertical;" onclick="this.select()">[${tokens.join(', ')}]</textarea>`;
+            summary += `</div>`;
+            
+            summary += `<button class="btn" style="margin-top: 10px; width: 100%;" onclick="quickAddToHouse('${house}', [${tokens.join(', ')}])">Quick Add to ${house}</button>`;
+            
+            summary += `</div>`;
+        }
+        
+        summary += `</div>`;
+        
+        document.getElementById('contractNFTSummary').innerHTML = summary;
+        
+        log(`✅ Found ${ownedTokens.length} Winions owned by contract`, 'success');
+        
+    } catch (error) {
+        console.error('Check contract NFTs error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        document.getElementById('contractNFTList').innerHTML = `<p style="color: #ff4444;">Error: ${error.message}</p>`;
+    }
+}
+
+// Quick Add to House (from contract checker)
+async function quickAddToHouse(houseName, tokenIds) {
+    try {
+        if (!confirm(`Add ${tokenIds.length} NFTs to ${houseName}?`)) {
+            return;
+        }
+        
+        log(`Adding ${tokenIds.length} NFTs to ${houseName}...`, 'info');
+        
+        const tx = await distributionContract.addToHouseInventory(houseName, tokenIds);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Successfully added ${tokenIds.length} NFTs to ${houseName}`, 'success');
+        
+        // Refresh
+        await refreshStatus();
+        await loadInventory();
+        
+    } catch (error) {
+        console.error('Quick add error:', error);
+        
+        if (error.message.includes('Contract does not own this token')) {
+            log('❌ Error: Contract does not own one or more of these tokens.', 'error');
+        } else {
+            log(`❌ Error: ${error.message}`, 'error');
+        }
+    }
+}
+
 // View on Etherscan
 function viewOnEtherscan() {
     window.open(`${CONFIG.ETHERSCAN_URL}/address/${CONFIG.DISTRIBUTION_CONTRACT}`, '_blank');
