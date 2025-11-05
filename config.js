@@ -1,5 +1,4 @@
 // Winions Distribution Configuration
-
 const CONFIG = {
     // Contract Addresses
     DISTRIBUTION_CONTRACT: "0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7",
@@ -8,6 +7,9 @@ const CONFIG = {
     // Network
     CHAIN_ID: 1, // Ethereum Mainnet
     NETWORK_NAME: "Ethereum Mainnet",
+    
+    // Etherscan URL
+    ETHERSCAN_URL: "https://etherscan.io",
     
     // House Mapping (roll total to house name)
     HOUSE_RANGES: {
