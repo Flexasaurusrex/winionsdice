@@ -166,9 +166,39 @@ window.addEventListener('load', async () => {
 
 async function connectWallet() {
     try {
+        // Mobile MetaMask detection
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
         if (typeof window.ethereum === 'undefined') {
-            showToast('Please install MetaMask to use this app!', 'error');
-            return;
+            if (isMobile) {
+                // MetaMask is not injected - redirect to MetaMask app
+                const currentUrl = window.location.href;
+                const deepLink = `https://metamask.app.link/dapp/${currentUrl.replace(/^https?:\/\//, '')}`;
+                
+                showToast('Opening MetaMask app...', 'info');
+                
+                // Try to open MetaMask app
+                window.location.href = deepLink;
+                
+                // If it doesn't work after 2 seconds, show install prompt
+                setTimeout(() => {
+                    const installUrl = 'https://metamask.io/download/';
+                    if (confirm('MetaMask not detected. Would you like to install it?')) {
+                        window.open(installUrl, '_blank');
+                    }
+                }, 2000);
+                
+                return;
+            } else {
+                // Desktop - show install prompt
+                showToast('Please install MetaMask browser extension!', 'error');
+                setTimeout(() => {
+                    if (confirm('MetaMask not detected. Would you like to install it?')) {
+                        window.open('https://metamask.io/download/', '_blank');
+                    }
+                }, 1000);
+                return;
+            }
         }
 
         document.getElementById('walletStatus').style.display = 'block';
@@ -191,7 +221,17 @@ async function connectWallet() {
         
         const network = await provider.getNetwork();
         if (network.chainId !== CONFIG.CHAIN_ID) {
-            throw new Error('Please switch to Ethereum Mainnet');
+            showToast('Please switch to Ethereum Mainnet', 'warning');
+            
+            // Try to switch network on mobile
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x1' }], // Mainnet
+                });
+            } catch (switchError) {
+                throw new Error('Please switch to Ethereum Mainnet in MetaMask');
+            }
         }
         
         document.getElementById('walletStatus').textContent = `Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
