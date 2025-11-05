@@ -166,40 +166,46 @@ window.addEventListener('load', async () => {
 
 async function connectWallet() {
     try {
-        // Mobile MetaMask detection
+        // Mobile detection
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         
         if (typeof window.ethereum === 'undefined') {
             if (isMobile) {
-                // MetaMask is not injected - redirect to MetaMask app
-                const currentUrl = window.location.href;
-                const deepLink = `https://metamask.app.link/dapp/${currentUrl.replace(/^https?:\/\//, '')}`;
+                // Show options for mobile wallets
+                showToast('Opening wallet...', 'info');
                 
-                showToast('Opening MetaMask app...', 'info');
+                // Universal deep link - works with multiple wallets
+                const currentUrl = window.location.href.replace(/^https?:\/\//, '');
                 
-                // Try to open MetaMask app
-                window.location.href = deepLink;
+                // Try MetaMask first (most popular)
+                const metamaskLink = `https://metamask.app.link/dapp/${currentUrl}`;
                 
-                // If it doesn't work after 2 seconds, show install prompt
+                // Alternative: WalletConnect or other options
+                window.location.href = metamaskLink;
+                
+                // Fallback after 2 seconds
                 setTimeout(() => {
-                    const installUrl = 'https://metamask.io/download/';
-                    if (confirm('MetaMask not detected. Would you like to install it?')) {
-                        window.open(installUrl, '_blank');
+                    if (confirm('No wallet detected. Would you like to see wallet options?')) {
+                        window.open('https://ethereum.org/wallets/find-wallet/', '_blank');
                     }
                 }, 2000);
                 
                 return;
             } else {
-                // Desktop - show install prompt
-                showToast('Please install MetaMask browser extension!', 'error');
+                // Desktop - show wallet options
+                showToast('No wallet detected. Please install a Web3 wallet.', 'warning');
                 setTimeout(() => {
-                    if (confirm('MetaMask not detected. Would you like to install it?')) {
-                        window.open('https://metamask.io/download/', '_blank');
+                    if (confirm('No Web3 wallet detected. Would you like to see wallet options?')) {
+                        window.open('https://ethereum.org/wallets/find-wallet/', '_blank');
                     }
                 }, 1000);
                 return;
             }
         }
+
+        // Detect which wallet is connected
+        const walletName = detectWalletProvider();
+        console.log('Connecting with:', walletName);
 
         document.getElementById('walletStatus').style.display = 'block';
         document.getElementById('walletStatus').textContent = 'Opening wallet connection...';
@@ -223,20 +229,31 @@ async function connectWallet() {
         if (network.chainId !== CONFIG.CHAIN_ID) {
             showToast('Please switch to Ethereum Mainnet', 'warning');
             
-            // Try to switch network on mobile
+            // Try to switch network (works with most wallets)
             try {
                 await window.ethereum.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: '0x1' }], // Mainnet
                 });
+                
+                // Reload after network switch
+                window.location.reload();
             } catch (switchError) {
-                throw new Error('Please switch to Ethereum Mainnet in MetaMask');
+                // User rejected or wallet doesn't support switching
+                if (switchError.code === 4001) {
+                    showToast('Network switch rejected. Please switch to Ethereum Mainnet manually.', 'error');
+                } else {
+                    showToast('Please switch to Ethereum Mainnet in your wallet.', 'error');
+                }
+                document.getElementById('connectButton').disabled = false;
+                document.getElementById('walletStatus').style.display = 'none';
+                return;
             }
         }
         
         document.getElementById('walletStatus').textContent = `Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
         
-        showToast('Wallet connected successfully!', 'success');
+        showToast(`Connected with ${walletName}!`, 'success');
         
         await loadUserRolls();
         
@@ -245,8 +262,10 @@ async function connectWallet() {
         
         if (error.code === 4001) {
             showToast('Connection rejected. Please approve the connection in your wallet.', 'error');
+        } else if (error.code === -32002) {
+            showToast('Connection request already pending. Please check your wallet.', 'warning');
         } else if (error.message && error.message.includes('ethereum')) {
-            showToast('Multiple wallet extensions detected. Please disable all except MetaMask and refresh.', 'error');
+            showToast('Multiple wallets detected. Please disable all except one and refresh.', 'error');
         } else {
             showToast(error.message || 'Connection failed', 'error');
         }
@@ -254,6 +273,32 @@ async function connectWallet() {
         document.getElementById('connectButton').disabled = false;
         document.getElementById('walletStatus').style.display = 'none';
     }
+}
+
+// Detect which wallet provider is being used
+function detectWalletProvider() {
+    if (!window.ethereum) return 'Unknown';
+    
+    // Check for specific wallet providers
+    if (window.ethereum.isMetaMask) return 'MetaMask';
+    if (window.ethereum.isCoinbaseWallet) return 'Coinbase Wallet';
+    if (window.ethereum.isTrust) return 'Trust Wallet';
+    if (window.ethereum.isRabby) return 'Rabby';
+    if (window.ethereum.isBraveWallet) return 'Brave Wallet';
+    if (window.ethereum.isFrame) return 'Frame';
+    if (window.ethereum.isTokenary) return 'Tokenary';
+    if (window.ethereum.isStatus) return 'Status';
+    if (window.ethereum.isTally) return 'Tally';
+    
+    // Check provider info
+    if (window.ethereum.providers && window.ethereum.providers.length > 0) {
+        // Multiple wallets installed - use the selected one
+        const selectedProvider = window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0];
+        if (selectedProvider.isMetaMask) return 'MetaMask';
+        if (selectedProvider.isCoinbaseWallet) return 'Coinbase Wallet';
+    }
+    
+    return 'Web3 Wallet';
 }
 
 async function loadUserRolls() {
@@ -656,15 +701,23 @@ function resetToRollsScreen() {
 if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
         if (accounts.length === 0) {
+            showToast('Wallet disconnected', 'info');
             location.reload();
         } else {
             userAddress = accounts[0];
-            showToast('Wallet changed', 'info');
+            showToast('Account changed', 'info');
             loadUserRolls();
         }
     });
     
-    window.ethereum.on('chainChanged', () => {
+    window.ethereum.on('chainChanged', (chainId) => {
+        showToast('Network changed. Reloading...', 'info');
+        setTimeout(() => location.reload(), 1000);
+    });
+    
+    // Handle disconnect event (supported by some wallets)
+    window.ethereum.on('disconnect', () => {
+        showToast('Wallet disconnected', 'info');
         location.reload();
     });
 }
