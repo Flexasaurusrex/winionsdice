@@ -1,4 +1,4 @@
-// Winions Dice Roller - Smart Rolling with Inventory Check
+// Winions Dice Roller - FIXED Smart Rolling
 // Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
 let provider;
@@ -8,9 +8,8 @@ let distributionContract;
 let currentSchool = null;
 let currentRollTotal = 0;
 let currentHouseName = '';
-let availableHouses = {}; // Store houses with available NFTs
+let availableHouses = {};
 
-// House roll ranges
 const HOUSE_RANGES = {
     'House of Havoc': { min: 66, max: 99 },
     'House of Misfits': { min: 100, max: 132 },
@@ -27,24 +26,18 @@ const HOUSE_RANGES = {
     'House of Death': { min: 396, max: 396 }
 };
 
-// Initialize on page load
 window.addEventListener('load', async () => {
     document.getElementById('connectButton').addEventListener('click', connectWallet);
     document.getElementById('continueToSchool').addEventListener('click', showSchoolScreen);
     
-    // School selection
     document.querySelectorAll('.school-button').forEach(button => {
         button.addEventListener('click', () => selectSchool(button.dataset.school));
     });
     
-    // Dice rolling
     document.getElementById('rollButton').addEventListener('click', rollDice);
-    
-    // Claim button
     document.getElementById('claimButton').addEventListener('click', claimWinion);
 });
 
-// Connect Wallet
 async function connectWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
@@ -56,25 +49,20 @@ async function connectWallet() {
         document.getElementById('walletStatus').textContent = 'Opening wallet connection...';
         document.getElementById('connectButton').disabled = true;
 
-        // Request account access
         const accounts = await window.ethereum.request({ 
             method: 'eth_requestAccounts' 
         });
         
         userAddress = accounts[0];
-        
-        // Setup ethers provider - V5 syntax
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         
-        // Initialize contract
         distributionContract = new ethers.Contract(
             CONFIG.DISTRIBUTION_CONTRACT,
             DISTRIBUTION_CONTRACT_ABI,
             signer
         );
         
-        // Check if on correct network
         const network = await provider.getNetwork();
         if (network.chainId !== CONFIG.CHAIN_ID) {
             throw new Error('Please switch to Ethereum Mainnet');
@@ -82,48 +70,30 @@ async function connectWallet() {
         
         document.getElementById('walletStatus').textContent = `Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
         
-        // Load user's rolls
         await loadUserRolls();
         
     } catch (error) {
         console.error('Wallet connection error:', error);
-        
-        if (error.code === 4001) {
-            document.getElementById('verificationStatus').innerHTML = 
-                '<p class="error">❌ Connection rejected. Please try again and approve the connection in your wallet.</p>';
-        } else if (error.message && error.message.includes('ethereum')) {
-            document.getElementById('verificationStatus').innerHTML = 
-                '<p class="error">❌ Wallet Conflict Detected<br>You have multiple wallet extensions installed that are conflicting.<br><strong>Quick Fix:</strong> Disable all wallet extensions except one (keep MetaMask), then refresh the page.</p>';
-        } else {
-            document.getElementById('verificationStatus').innerHTML = 
-                `<p class="error">❌ ${error.message || 'Connection failed'}</p>`;
-        }
-        
         document.getElementById('connectButton').disabled = false;
         document.getElementById('walletStatus').style.display = 'none';
     }
 }
 
-// Load User's Rolls
 async function loadUserRolls() {
     try {
-        // Get user's rolls from contract
         const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
         
         document.getElementById('freeRollsCount').textContent = freeRolls.toString();
         document.getElementById('paidRollsCount').textContent = paidRolls.toString();
         
-        // Get prices - V5 syntax
         const [single, three, five] = await distributionContract.getPrices();
         document.getElementById('price1').textContent = `${ethers.utils.formatEther(single)} ETH`;
         document.getElementById('price3').textContent = `${ethers.utils.formatEther(three)} ETH`;
         document.getElementById('price5').textContent = `${ethers.utils.formatEther(five)} ETH`;
         
-        // Show rolls screen
         document.getElementById('walletScreen').style.display = 'none';
         document.getElementById('rollsScreen').style.display = 'block';
         
-        // Check if distribution is active
         const isActive = await distributionContract.distributionActive();
         if (!isActive) {
             alert('⚠️ Distribution is not currently active. Please check back later!');
@@ -135,13 +105,11 @@ async function loadUserRolls() {
     }
 }
 
-// Purchase Rolls
 async function purchaseRolls(numberOfRolls) {
     try {
         document.getElementById('verificationStatus').innerHTML = 
             '<p class="info">⏳ Preparing transaction...</p>';
         
-        // Get price from contract
         const [single, three, five] = await distributionContract.getPrices();
         let price;
         
@@ -149,7 +117,6 @@ async function purchaseRolls(numberOfRolls) {
         else if (numberOfRolls === 3) price = three;
         else if (numberOfRolls === 5) price = five;
         
-        // Send transaction
         const tx = await distributionContract.purchaseRolls(numberOfRolls, {
             value: price
         });
@@ -162,7 +129,6 @@ async function purchaseRolls(numberOfRolls) {
         document.getElementById('verificationStatus').innerHTML = 
             '<p class="success">✅ Rolls purchased successfully!</p>';
         
-        // Reload rolls
         await loadUserRolls();
         
         setTimeout(() => {
@@ -182,24 +148,19 @@ async function purchaseRolls(numberOfRolls) {
     }
 }
 
-// Show School Selection Screen
 function showSchoolScreen() {
     document.getElementById('rollsScreen').style.display = 'none';
     document.getElementById('schoolScreen').style.display = 'block';
 }
 
-// Select School
 async function selectSchool(school) {
     currentSchool = school;
     document.getElementById('schoolScreen').style.display = 'none';
-    
-    // Show loading state
     document.getElementById('diceScreen').style.display = 'block';
     document.getElementById('chosenSchool').textContent = school.toUpperCase();
     document.getElementById('rollButton').disabled = true;
     document.getElementById('rollButton').textContent = 'CHECKING INVENTORY...';
     
-    // Set theme color based on school
     const schoolColors = {
         anarchy: '#ff6b35',
         mischief: '#4a90e2',
@@ -208,7 +169,6 @@ async function selectSchool(school) {
     
     document.body.style.setProperty('--school-color', schoolColors[school] || '#ff1a1a');
     
-    // Check house inventory BEFORE creating dice
     await checkAvailableHouses();
     
     createDice();
@@ -217,29 +177,28 @@ async function selectSchool(school) {
     document.getElementById('rollButton').textContent = '🎲 ROLL THE DICE 🎲';
 }
 
-// Check Available Houses
 async function checkAvailableHouses() {
     try {
         availableHouses = {};
         
-        // Check each house's inventory
         for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
             try {
                 const count = await distributionContract.getHouseInventoryCount(houseName);
-                const countNum = Number(count);
+                const countNum = Number(count.toString());
                 
                 if (countNum > 0) {
                     availableHouses[houseName] = {
                         count: countNum,
                         range: range
                     };
+                    console.log(`✅ ${houseName}: ${countNum} NFTs`);
                 }
             } catch (error) {
                 console.error(`Error checking ${houseName}:`, error);
             }
         }
         
-        console.log('Available houses:', availableHouses);
+        console.log('Available houses:', Object.keys(availableHouses));
         
         if (Object.keys(availableHouses).length === 0) {
             alert('⚠️ No NFTs available in any house! Please contact admin.');
@@ -251,12 +210,10 @@ async function checkAvailableHouses() {
     }
 }
 
-// Create 66 Dice
 function createDice() {
     const diceDisplay = document.getElementById('diceDisplay');
     diceDisplay.innerHTML = '';
     
-    // Create exactly 66 dice
     for (let i = 0; i < 66; i++) {
         const die = document.createElement('div');
         die.className = 'die';
@@ -264,29 +221,60 @@ function createDice() {
         die.id = `die-${i}`;
         diceDisplay.appendChild(die);
     }
-    
-    console.log('Created 66 dice');
 }
 
-// Smart Roll - ensures landing in available house
-function generateSmartRoll() {
-    const availableRanges = Object.values(availableHouses).map(h => h.range);
+// FIXED: Generate dice that actually sum to target
+function generateSmartDiceRolls() {
+    const availableHousesList = Object.values(availableHouses);
     
-    if (availableRanges.length === 0) {
-        // Fallback to random if no houses available
-        return Math.floor(Math.random() * 331) + 66; // 66-396
+    if (availableHousesList.length === 0) {
+        // Fallback: random roll
+        const rolls = [];
+        for (let i = 0; i < 66; i++) {
+            rolls.push(Math.floor(Math.random() * 6) + 1);
+        }
+        return rolls;
     }
     
-    // Pick a random available house
-    const randomHouse = availableRanges[Math.floor(Math.random() * availableRanges.length)];
+    // Pick random house with NFTs
+    const randomHouse = availableHousesList[Math.floor(Math.random() * availableHousesList.length)];
     
-    // Generate roll within that house's range
-    const roll = Math.floor(Math.random() * (randomHouse.max - randomHouse.min + 1)) + randomHouse.min;
+    // Pick random target within house range
+    const target = Math.floor(Math.random() * (randomHouse.range.max - randomHouse.range.min + 1)) + randomHouse.range.min;
     
-    return roll;
+    console.log(`🎯 Target: ${target} (${Object.keys(availableHouses).find(k => availableHouses[k] === randomHouse)})`);
+    
+    // Generate 66 dice that sum to target
+    const rolls = [];
+    let remaining = target;
+    
+    // Roll first 65 dice
+    for (let i = 0; i < 65; i++) {
+        // Calculate how much we have left to distribute
+        const diceLeft = 66 - i;
+        const minPossible = diceLeft; // All remaining dice are 1
+        const maxPossible = diceLeft * 6; // All remaining dice are 6
+        
+        // Find valid range for this die
+        let minDie = Math.max(1, remaining - maxPossible + 6);
+        let maxDie = Math.min(6, remaining - minPossible + 1);
+        
+        // Roll within valid range
+        const roll = Math.floor(Math.random() * (maxDie - minDie + 1)) + minDie;
+        rolls.push(roll);
+        remaining -= roll;
+    }
+    
+    // Last die is whatever's remaining
+    rolls.push(remaining);
+    
+    // Validate
+    const sum = rolls.reduce((a, b) => a + b, 0);
+    console.log(`Rolls sum to: ${sum}, valid: ${rolls.every(r => r >= 1 && r <= 6)}`);
+    
+    return rolls;
 }
 
-// Roll Dice
 function rollDice() {
     const rollButton = document.getElementById('rollButton');
     rollButton.disabled = true;
@@ -300,42 +288,13 @@ function rollDice() {
         return;
     }
     
-    // Generate smart roll total
-    const targetTotal = generateSmartRoll();
-    console.log('Target roll total:', targetTotal);
+    // Generate smart rolls that sum to target
+    const rolls = generateSmartDiceRolls();
     
-    // Calculate what each die should roll to hit target
-    // Average per die needed
-    const avgNeeded = targetTotal / 66;
+    console.log('Final rolls:', rolls);
+    console.log('Sum:', rolls.reduce((a, b) => a + b, 0));
     
-    const rolls = [];
-    let currentSum = 0;
-    
-    // Roll all dice except the last one
-    for (let i = 0; i < 65; i++) {
-        const roll = Math.floor(Math.random() * 6) + 1;
-        rolls.push(roll);
-        currentSum += roll;
-    }
-    
-    // Calculate last die to hit target (or get as close as possible)
-    const neededForLast = targetTotal - currentSum;
-    let lastDie;
-    
-    if (neededForLast >= 1 && neededForLast <= 6) {
-        lastDie = neededForLast;
-    } else if (neededForLast < 1) {
-        lastDie = 1;
-    } else {
-        lastDie = 6;
-    }
-    
-    rolls.push(lastDie);
-    
-    console.log('Dice rolls:', rolls);
-    console.log('Final total:', rolls.reduce((a, b) => a + b, 0));
-    
-    // Animate and display each die
+    // Animate
     dice.forEach((die, index) => {
         die.classList.add('rolling');
         
@@ -343,7 +302,6 @@ function rollDice() {
             die.textContent = rolls[index];
             die.classList.remove('rolling');
             
-            // Calculate total after all dice are rolled
             if (index === 65) {
                 setTimeout(() => {
                     calculateTotal(rolls);
@@ -353,14 +311,10 @@ function rollDice() {
     });
 }
 
-// Calculate Total
 function calculateTotal(rolls) {
     const total = rolls.reduce((sum, roll) => sum + roll, 0);
     currentRollTotal = total;
     
-    console.log('Total calculated:', total);
-    
-    // Animate counting up
     let currentCount = 0;
     const increment = Math.ceil(total / 50);
     const counter = setInterval(() => {
@@ -376,15 +330,14 @@ function calculateTotal(rolls) {
     }, 20);
 }
 
-// Reveal House
 function revealHouse(total) {
     const houseName = getHouseFromRoll(total);
     currentHouseName = houseName;
     
-    // Check if this house has NFTs available
+    // Check if house has NFTs
     if (!availableHouses[houseName]) {
-        console.error('Rolled into house with no NFTs:', houseName);
-        alert('⚠️ Error: This house has no NFTs available. Please try again.');
+        console.error(`ERROR: Rolled into ${houseName} with 0 NFTs!`);
+        alert('⚠️ Error: Rolled into house with no NFTs. Please try again.');
         document.getElementById('rollButton').disabled = false;
         return;
     }
@@ -392,25 +345,21 @@ function revealHouse(total) {
     document.getElementById('rolledHouseName').textContent = houseName;
     document.getElementById('houseResult').style.display = 'block';
     
-    // Show how many NFTs are left in this house
     const remaining = availableHouses[houseName].count;
     const countDisplay = document.createElement('p');
     countDisplay.style.color = '#00ff00';
     countDisplay.style.marginTop = '10px';
-    countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining in this house`;
+    countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining`;
+    countDisplay.className = 'nft-count';
     
     const houseResult = document.getElementById('houseResult');
     const existingCount = houseResult.querySelector('.nft-count');
-    if (existingCount) {
-        existingCount.remove();
-    }
-    countDisplay.className = 'nft-count';
+    if (existingCount) existingCount.remove();
     houseResult.appendChild(countDisplay);
     
     document.getElementById('rollButton').disabled = false;
 }
 
-// Get House From Roll Total
 function getHouseFromRoll(total) {
     for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
         if (total >= range.min && total <= range.max) {
@@ -420,20 +369,12 @@ function getHouseFromRoll(total) {
     return 'Unknown House';
 }
 
-// Claim Winion
 async function claimWinion() {
     try {
         const claimButton = document.getElementById('claimButton');
         claimButton.disabled = true;
         claimButton.textContent = 'CLAIMING...';
         
-        // Double-check house has NFTs before claiming
-        const count = await distributionContract.getHouseInventoryCount(currentHouseName);
-        if (Number(count) === 0) {
-            throw new Error('No NFTs available in this house');
-        }
-        
-        // Call contract
         const tx = await distributionContract.claimWinion(
             currentRollTotal,
             currentHouseName
@@ -443,7 +384,6 @@ async function claimWinion() {
         
         const receipt = await tx.wait();
         
-        // Find the NFTDistributed event
         const event = receipt.logs.find(log => {
             try {
                 const parsed = distributionContract.interface.parseLog(log);
@@ -459,7 +399,6 @@ async function claimWinion() {
             tokenId = parsed.args.tokenId.toString();
         }
         
-        // Show success modal
         showSuccessModal(tokenId, tx.hash);
         
     } catch (error) {
@@ -474,7 +413,7 @@ async function claimWinion() {
         } else if (error.message.includes('No rolls available')) {
             alert('❌ No rolls available. Please purchase rolls first.');
         } else if (error.message.includes('No NFTs available')) {
-            alert('❌ No NFTs available for this house. Please try again or contact support.');
+            alert('❌ No NFTs available for this house.');
         } else if (error.message.includes('Distribution is not active')) {
             alert('❌ Distribution is not currently active.');
         } else {
@@ -483,14 +422,12 @@ async function claimWinion() {
     }
 }
 
-// Show Success Modal
 function showSuccessModal(tokenId, txHash) {
     document.getElementById('claimedHouseName').textContent = currentHouseName;
     document.getElementById('claimedTokenId').textContent = tokenId;
     document.getElementById('claimedRollTotal').textContent = currentRollTotal;
     document.getElementById('etherscanLink').href = `${CONFIG.ETHERSCAN_URL}/tx/${txHash}`;
     
-    // Set house image if available
     const houseImages = {
         'House of Havoc': 'havoc.gif',
         'House of Misfits': 'misfit.gif',
@@ -513,7 +450,6 @@ function showSuccessModal(tokenId, txHash) {
     document.getElementById('successModal').style.display = 'flex';
 }
 
-// Reset to Rolls Screen
 function resetToRollsScreen() {
     document.getElementById('successModal').style.display = 'none';
     document.getElementById('diceScreen').style.display = 'none';
@@ -528,7 +464,6 @@ function resetToRollsScreen() {
     loadUserRolls();
 }
 
-// Handle account changes
 if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
         if (accounts.length === 0) {
