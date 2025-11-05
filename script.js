@@ -1,4 +1,4 @@
-// Winions Dice Roller - Complete Integration Script
+// Winions Dice Roller - Smart Rolling with Inventory Check
 // Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
 let provider;
@@ -8,6 +8,24 @@ let distributionContract;
 let currentSchool = null;
 let currentRollTotal = 0;
 let currentHouseName = '';
+let availableHouses = {}; // Store houses with available NFTs
+
+// House roll ranges
+const HOUSE_RANGES = {
+    'House of Havoc': { min: 66, max: 99 },
+    'House of Misfits': { min: 100, max: 132 },
+    'House of Frog': { min: 133, max: 165 },
+    'House of Theory': { min: 166, max: 198 },
+    'House of Spectrum': { min: 199, max: 231 },
+    'House of Clay': { min: 232, max: 264 },
+    'House of Stencil': { min: 265, max: 297 },
+    'House of Royal': { min: 298, max: 330 },
+    'House of Shadows': { min: 331, max: 363 },
+    'House of Hellish': { min: 364, max: 385 },
+    'House of Hologram': { min: 386, max: 392 },
+    'House of Gold': { min: 393, max: 395 },
+    'House of Death': { min: 396, max: 396 }
+};
 
 // Initialize on page load
 window.addEventListener('load', async () => {
@@ -45,7 +63,7 @@ async function connectWallet() {
         
         userAddress = accounts[0];
         
-        // Setup ethers provider - FIXED FOR V5
+        // Setup ethers provider - V5 syntax
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         
@@ -95,7 +113,7 @@ async function loadUserRolls() {
         document.getElementById('freeRollsCount').textContent = freeRolls.toString();
         document.getElementById('paidRollsCount').textContent = paidRolls.toString();
         
-        // Get prices - FIXED FOR V5
+        // Get prices - V5 syntax
         const [single, three, five] = await distributionContract.getPrices();
         document.getElementById('price1').textContent = `${ethers.utils.formatEther(single)} ETH`;
         document.getElementById('price3').textContent = `${ethers.utils.formatEther(three)} ETH`;
@@ -171,11 +189,15 @@ function showSchoolScreen() {
 }
 
 // Select School
-function selectSchool(school) {
+async function selectSchool(school) {
     currentSchool = school;
     document.getElementById('schoolScreen').style.display = 'none';
+    
+    // Show loading state
     document.getElementById('diceScreen').style.display = 'block';
     document.getElementById('chosenSchool').textContent = school.toUpperCase();
+    document.getElementById('rollButton').disabled = true;
+    document.getElementById('rollButton').textContent = 'CHECKING INVENTORY...';
     
     // Set theme color based on school
     const schoolColors = {
@@ -186,7 +208,47 @@ function selectSchool(school) {
     
     document.body.style.setProperty('--school-color', schoolColors[school] || '#ff1a1a');
     
+    // Check house inventory BEFORE creating dice
+    await checkAvailableHouses();
+    
     createDice();
+    
+    document.getElementById('rollButton').disabled = false;
+    document.getElementById('rollButton').textContent = '🎲 ROLL THE DICE 🎲';
+}
+
+// Check Available Houses
+async function checkAvailableHouses() {
+    try {
+        availableHouses = {};
+        
+        // Check each house's inventory
+        for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
+            try {
+                const count = await distributionContract.getHouseInventoryCount(houseName);
+                const countNum = Number(count);
+                
+                if (countNum > 0) {
+                    availableHouses[houseName] = {
+                        count: countNum,
+                        range: range
+                    };
+                }
+            } catch (error) {
+                console.error(`Error checking ${houseName}:`, error);
+            }
+        }
+        
+        console.log('Available houses:', availableHouses);
+        
+        if (Object.keys(availableHouses).length === 0) {
+            alert('⚠️ No NFTs available in any house! Please contact admin.');
+            document.getElementById('rollButton').disabled = true;
+        }
+        
+    } catch (error) {
+        console.error('Error checking houses:', error);
+    }
 }
 
 // Create 66 Dice
@@ -194,6 +256,7 @@ function createDice() {
     const diceDisplay = document.getElementById('diceDisplay');
     diceDisplay.innerHTML = '';
     
+    // Create exactly 66 dice
     for (let i = 0; i < 66; i++) {
         const die = document.createElement('div');
         die.className = 'die';
@@ -201,6 +264,26 @@ function createDice() {
         die.id = `die-${i}`;
         diceDisplay.appendChild(die);
     }
+    
+    console.log('Created 66 dice');
+}
+
+// Smart Roll - ensures landing in available house
+function generateSmartRoll() {
+    const availableRanges = Object.values(availableHouses).map(h => h.range);
+    
+    if (availableRanges.length === 0) {
+        // Fallback to random if no houses available
+        return Math.floor(Math.random() * 331) + 66; // 66-396
+    }
+    
+    // Pick a random available house
+    const randomHouse = availableRanges[Math.floor(Math.random() * availableRanges.length)];
+    
+    // Generate roll within that house's range
+    const roll = Math.floor(Math.random() * (randomHouse.max - randomHouse.min + 1)) + randomHouse.min;
+    
+    return roll;
 }
 
 // Roll Dice
@@ -209,16 +292,55 @@ function rollDice() {
     rollButton.disabled = true;
     
     const dice = document.querySelectorAll('.die');
-    const rolls = [];
     
-    // Animate and roll each die
+    if (dice.length !== 66) {
+        console.error(`ERROR: Found ${dice.length} dice, should be 66!`);
+        alert('Dice loading error. Please refresh the page.');
+        rollButton.disabled = false;
+        return;
+    }
+    
+    // Generate smart roll total
+    const targetTotal = generateSmartRoll();
+    console.log('Target roll total:', targetTotal);
+    
+    // Calculate what each die should roll to hit target
+    // Average per die needed
+    const avgNeeded = targetTotal / 66;
+    
+    const rolls = [];
+    let currentSum = 0;
+    
+    // Roll all dice except the last one
+    for (let i = 0; i < 65; i++) {
+        const roll = Math.floor(Math.random() * 6) + 1;
+        rolls.push(roll);
+        currentSum += roll;
+    }
+    
+    // Calculate last die to hit target (or get as close as possible)
+    const neededForLast = targetTotal - currentSum;
+    let lastDie;
+    
+    if (neededForLast >= 1 && neededForLast <= 6) {
+        lastDie = neededForLast;
+    } else if (neededForLast < 1) {
+        lastDie = 1;
+    } else {
+        lastDie = 6;
+    }
+    
+    rolls.push(lastDie);
+    
+    console.log('Dice rolls:', rolls);
+    console.log('Final total:', rolls.reduce((a, b) => a + b, 0));
+    
+    // Animate and display each die
     dice.forEach((die, index) => {
         die.classList.add('rolling');
         
         setTimeout(() => {
-            const roll = Math.floor(Math.random() * 6) + 1;
-            rolls.push(roll);
-            die.textContent = roll;
+            die.textContent = rolls[index];
             die.classList.remove('rolling');
             
             // Calculate total after all dice are rolled
@@ -235,6 +357,8 @@ function rollDice() {
 function calculateTotal(rolls) {
     const total = rolls.reduce((sum, roll) => sum + roll, 0);
     currentRollTotal = total;
+    
+    console.log('Total calculated:', total);
     
     // Animate counting up
     let currentCount = 0;
@@ -257,27 +381,42 @@ function revealHouse(total) {
     const houseName = getHouseFromRoll(total);
     currentHouseName = houseName;
     
+    // Check if this house has NFTs available
+    if (!availableHouses[houseName]) {
+        console.error('Rolled into house with no NFTs:', houseName);
+        alert('⚠️ Error: This house has no NFTs available. Please try again.');
+        document.getElementById('rollButton').disabled = false;
+        return;
+    }
+    
     document.getElementById('rolledHouseName').textContent = houseName;
     document.getElementById('houseResult').style.display = 'block';
+    
+    // Show how many NFTs are left in this house
+    const remaining = availableHouses[houseName].count;
+    const countDisplay = document.createElement('p');
+    countDisplay.style.color = '#00ff00';
+    countDisplay.style.marginTop = '10px';
+    countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining in this house`;
+    
+    const houseResult = document.getElementById('houseResult');
+    const existingCount = houseResult.querySelector('.nft-count');
+    if (existingCount) {
+        existingCount.remove();
+    }
+    countDisplay.className = 'nft-count';
+    houseResult.appendChild(countDisplay);
     
     document.getElementById('rollButton').disabled = false;
 }
 
 // Get House From Roll Total
 function getHouseFromRoll(total) {
-    if (total >= 66 && total <= 99) return 'House of Havoc';
-    if (total >= 100 && total <= 132) return 'House of Misfits';
-    if (total >= 133 && total <= 165) return 'House of Frog';
-    if (total >= 166 && total <= 198) return 'House of Theory';
-    if (total >= 199 && total <= 231) return 'House of Spectrum';
-    if (total >= 232 && total <= 264) return 'House of Clay';
-    if (total >= 265 && total <= 297) return 'House of Stencil';
-    if (total >= 298 && total <= 330) return 'House of Royal';
-    if (total >= 331 && total <= 363) return 'House of Shadows';
-    if (total >= 364 && total <= 385) return 'House of Hellish';
-    if (total >= 386 && total <= 392) return 'House of Hologram';
-    if (total >= 393 && total <= 395) return 'House of Gold';
-    if (total === 396) return 'House of Death';
+    for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
+        if (total >= range.min && total <= range.max) {
+            return houseName;
+        }
+    }
     return 'Unknown House';
 }
 
@@ -287,6 +426,12 @@ async function claimWinion() {
         const claimButton = document.getElementById('claimButton');
         claimButton.disabled = true;
         claimButton.textContent = 'CLAIMING...';
+        
+        // Double-check house has NFTs before claiming
+        const count = await distributionContract.getHouseInventoryCount(currentHouseName);
+        if (Number(count) === 0) {
+            throw new Error('No NFTs available in this house');
+        }
         
         // Call contract
         const tx = await distributionContract.claimWinion(
