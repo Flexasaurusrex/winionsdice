@@ -420,6 +420,22 @@
                 </div>
             </div>
 
+            <!-- Check Contract NFTs -->
+            <div class="section">
+                <h2>📦 Check Contract's NFT Holdings</h2>
+                <p style="color: #ccc; margin-bottom: 20px;">See which Winions the contract owns and get ready-to-paste arrays for adding to house inventories.</p>
+                
+                <button class="btn" onclick="checkContractNFTs()">Check Contract NFTs</button>
+                
+                <div id="contractNFTResults" style="margin-top: 20px; display: none;">
+                    <div style="background: rgba(255, 26, 26, 0.1); border: 2px solid #ff1a1a; padding: 20px; border-radius: 5px;">
+                        <h3 style="color: #ff1a1a; margin-bottom: 15px;">NFTs in Contract</h3>
+                        <div id="contractNFTList"></div>
+                        <div id="contractNFTSummary" style="margin-top: 20px;"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- House Inventory -->
             <div class="section">
                 <h2>🏠 House Inventory Status</h2>
