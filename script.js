@@ -676,16 +676,139 @@ async function checkAvailableHouses() {
     }
 }
 
+// Create elegant number display instead of 66 dice
 function createDice() {
     const diceDisplay = document.getElementById('diceDisplay');
     diceDisplay.innerHTML = '';
+    diceDisplay.className = 'dice-display-modern';
     
-    for (let i = 0; i < 66; i++) {
-        const die = document.createElement('div');
-        die.className = 'die';
-        die.textContent = '?';
-        die.id = `die-${i}`;
-        diceDisplay.appendChild(die);
+    // Create single glowing number display
+    const numberDisplay = document.createElement('div');
+    numberDisplay.className = 'roll-number-display';
+    numberDisplay.innerHTML = `
+        <div class="number-glow-container">
+            <div class="number-value" id="rollingNumber">?</div>
+            <div class="number-glow"></div>
+        </div>
+    `;
+    
+    diceDisplay.appendChild(numberDisplay);
+    
+    // Inject modern styles
+    if (!document.getElementById('modern-dice-styles')) {
+        const styles = document.createElement('style');
+        styles.id = 'modern-dice-styles';
+        styles.textContent = `
+            .dice-display-modern {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 400px;
+                padding: 40px;
+            }
+            
+            .roll-number-display {
+                position: relative;
+                width: 100%;
+                max-width: 500px;
+            }
+            
+            .number-glow-container {
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                aspect-ratio: 1;
+            }
+            
+            .number-value {
+                font-size: clamp(120px, 20vw, 280px);
+                font-weight: bold;
+                color: #fff;
+                text-shadow: 
+                    0 0 20px rgba(255, 26, 26, 0.8),
+                    0 0 40px rgba(255, 26, 26, 0.6),
+                    0 0 60px rgba(255, 26, 26, 0.4),
+                    0 0 80px rgba(255, 26, 26, 0.2);
+                font-family: 'Courier New', monospace;
+                z-index: 2;
+                position: relative;
+                letter-spacing: -0.05em;
+            }
+            
+            .number-glow {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(circle, rgba(255, 26, 26, 0.3) 0%, transparent 70%);
+                filter: blur(40px);
+                animation: pulse-glow 2s ease-in-out infinite;
+                z-index: 1;
+            }
+            
+            .number-value.spinning {
+                animation: spin-number 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            }
+            
+            .number-value.revealing {
+                animation: reveal-number 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            
+            @keyframes spin-number {
+                0% {
+                    transform: rotateY(0deg) scale(1);
+                    filter: blur(0px);
+                }
+                50% {
+                    transform: rotateY(180deg) scale(1.2);
+                    filter: blur(3px);
+                    color: #ff1a1a;
+                }
+                100% {
+                    transform: rotateY(360deg) scale(1);
+                    filter: blur(0px);
+                }
+            }
+            
+            @keyframes reveal-number {
+                0% {
+                    transform: scale(0.5);
+                    opacity: 0;
+                    filter: blur(20px);
+                }
+                50% {
+                    transform: scale(1.15);
+                }
+                100% {
+                    transform: scale(1);
+                    opacity: 1;
+                    filter: blur(0px);
+                }
+            }
+            
+            @keyframes pulse-glow {
+                0%, 100% {
+                    opacity: 0.6;
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 1;
+                    transform: scale(1.1);
+                }
+            }
+            
+            @media (max-width: 768px) {
+                .dice-display-modern {
+                    min-height: 300px;
+                    padding: 20px;
+                }
+                
+                .number-value {
+                    font-size: clamp(80px, 25vw, 180px);
+                }
+            }
+        `;
+        document.head.appendChild(styles);
     }
 }
 
@@ -740,33 +863,53 @@ async function rollDice() {
     const rollButton = document.getElementById('rollButton');
     rollButton.disabled = true;
     
-    const dice = document.querySelectorAll('.die');
+    const numberDisplay = document.getElementById('rollingNumber');
     
-    if (dice.length !== 66) {
-        console.error(`ERROR: Found ${dice.length} dice, should be 66!`);
-        showToast('Dice loading error. Please refresh the page.', 'error');
+    if (!numberDisplay) {
+        console.error('Number display not found!');
+        showToast('Display error. Please refresh the page.', 'error');
         rollButton.disabled = false;
         return;
     }
     
+    // Generate the roll total
     const rolls = generateSmartDiceRolls();
+    const finalTotal = rolls.reduce((a, b) => a + b, 0);
     
-    showToast('Rolling the dice...', 'info');
+    showToast('Rolling...', 'info');
     
-    dice.forEach((die, index) => {
-        die.classList.add('rolling');
+    // Spinning animation phase (rapid number changes)
+    let spinCount = 0;
+    const spinDuration = 2000; // 2 seconds of spinning
+    const spinInterval = 50; // Update every 50ms
+    
+    numberDisplay.classList.add('spinning');
+    
+    const spinAnimation = setInterval(() => {
+        // Show random numbers while spinning
+        const randomNum = Math.floor(Math.random() * 331) + 66; // 66-396
+        numberDisplay.textContent = randomNum;
+        spinCount++;
         
-        setTimeout(() => {
-            die.textContent = rolls[index];
-            die.classList.remove('rolling');
+        if (spinCount * spinInterval >= spinDuration) {
+            clearInterval(spinAnimation);
             
-            if (index === 65) {
+            // Remove spinning class
+            numberDisplay.classList.remove('spinning');
+            
+            // Show final number with reveal animation
+            setTimeout(() => {
+                numberDisplay.classList.add('revealing');
+                numberDisplay.textContent = finalTotal;
+                
+                // Remove revealing class after animation
                 setTimeout(() => {
+                    numberDisplay.classList.remove('revealing');
                     calculateTotal(rolls);
-                }, 500);
-            }
-        }, index * 30);
-    });
+                }, 800);
+            }, 100);
+        }
+    }, spinInterval);
 }
 
 function calculateTotal(rolls) {
