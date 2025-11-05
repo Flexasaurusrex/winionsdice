@@ -1,589 +1,26 @@
-// Enhanced Winions Distribution Admin Script
-// Complete contract management interface
+// Winions Admin Panel Script
+// Contract: Uses CONFIG.DISTRIBUTION_CONTRACT from config.js
 
 let provider;
 let signer;
-let contract;
-let userAddress;
+let adminAddress;
+let distributionContract;
 
-const CONTRACT_ADDRESS = "0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7";
-
-// Initialize on page load
-window.addEventListener('load', async () => {
-    log('Admin panel ready. Please connect your wallet.');
-});
-
-// Connect Wallet
-document.getElementById('connectWallet').addEventListener('click', async () => {
-    try {
-        if (typeof window.ethereum === 'undefined') {
-            alert('Please install MetaMask!');
-            return;
-        }
-
-        // Request account access
-        const accounts = await window.ethereum.request({ 
-            method: 'eth_requestAccounts' 
-        });
-        
-        userAddress = accounts[0];
-        
-        // Set up provider and signer
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        
-        // Initialize contract
-        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        
-        // Update UI
-        document.getElementById('walletAddress').textContent = 
-            userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
-        document.getElementById('walletInfo').classList.add('active');
-        document.getElementById('connectWallet').textContent = 'CONNECTED ✓';
-        document.getElementById('connectWallet').disabled = true;
-        
-        // Verify owner
-        const owner = await contract.owner();
-        const isOwner = owner.toLowerCase() === userAddress.toLowerCase();
-        
-        if (isOwner) {
-            document.getElementById('ownerStatus').innerHTML = 
-                '<span style="color: #00ff00;">✓ ADMIN ACCESS</span>';
-            document.getElementById('statusDashboard').classList.remove('hidden');
-            log('Admin access verified!', 'success');
-            
-            // Load initial data
-            await loadDashboard();
-        } else {
-            document.getElementById('ownerStatus').innerHTML = 
-                '<span style="color: #ff0000;">✗ NOT AUTHORIZED</span>';
-            log('Error: This wallet is not the contract owner!', 'error');
-        }
-        
-    } catch (error) {
-        console.error('Connection error:', error);
-        log('Failed to connect wallet: ' + error.message, 'error');
-    }
-});
-
-// Load Dashboard Data
-async function loadDashboard() {
-    try {
-        log('Loading dashboard data...');
-        
-        // Get distribution status
-        const distActive = await contract.distributionActive();
-        updateDistributionStatus(distActive);
-        
-        // Get contract balance
-        const balance = await provider.getBalance(CONTRACT_ADDRESS);
-        const balanceInEth = ethers.utils.formatEther(balance);
-        document.getElementById('contractBalance').textContent = 
-            parseFloat(balanceInEth).toFixed(4) + ' ETH';
-        document.getElementById('ethBalance').textContent = 
-            parseFloat(balanceInEth).toFixed(4) + ' ETH';
-        
-        // Get prices
-        await loadPrices();
-        
-        // Get house inventory
-        await loadHouseInventory();
-        
-        log('Dashboard loaded successfully!', 'success');
-        
-    } catch (error) {
-        console.error('Dashboard load error:', error);
-        log('Error loading dashboard: ' + error.message, 'error');
-    }
-}
-
-// Update Distribution Status Display
-function updateDistributionStatus(isActive) {
-    const statusElement = document.getElementById('distributionStatus');
-    const textElement = document.getElementById('distStatusText');
+// Initialize
+window.addEventListener('load', () => {
+    document.getElementById('connectAdminBtn').addEventListener('click', connectAdmin);
     
-    if (isActive) {
-        statusElement.textContent = 'ACTIVE';
-        statusElement.classList.remove('inactive');
-        statusElement.classList.add('active');
-        textElement.textContent = 'Active - Users can claim NFTs';
-    } else {
-        statusElement.textContent = 'INACTIVE';
-        statusElement.classList.remove('active');
-        statusElement.classList.add('inactive');
-        textElement.textContent = 'Inactive - Claims paused';
-    }
-}
-
-// Load Current Prices
-async function loadPrices() {
-    try {
-        const prices = await contract.getPrices();
-        
-        document.getElementById('price1').textContent = 
-            ethers.utils.formatEther(prices.single) + ' ETH';
-        document.getElementById('price3').textContent = 
-            ethers.utils.formatEther(prices.three) + ' ETH';
-        document.getElementById('price5').textContent = 
-            ethers.utils.formatEther(prices.five) + ' ETH';
-            
-    } catch (error) {
-        console.error('Error loading prices:', error);
-    }
-}
-
-// Load House Inventory
-async function loadHouseInventory() {
-    try {
-        const houses = await contract.getAllHouses();
-        const inventoryDiv = document.getElementById('houseInventory');
-        inventoryDiv.innerHTML = '';
-        
-        let totalNFTs = 0;
-        
-        for (const house of houses) {
-            const count = await contract.getHouseInventoryCount(house);
-            totalNFTs += count.toNumber();
-            
-            const houseItem = document.createElement('div');
-            houseItem.className = 'house-item';
-            houseItem.innerHTML = `
-                <div class="house-name">${house.replace('House of ', '')}</div>
-                <div class="house-count">${count.toNumber()}</div>
-            `;
-            inventoryDiv.appendChild(houseItem);
-        }
-        
-        document.getElementById('totalNFTs').textContent = totalNFTs;
-        
-    } catch (error) {
-        console.error('Error loading inventory:', error);
-        log('Error loading inventory: ' + error.message, 'error');
-    }
-}
-
-// Refresh Inventory
-async function refreshInventory() {
-    log('Refreshing inventory...');
-    await loadHouseInventory();
-    log('Inventory refreshed!', 'success');
-}
-
-// Toggle Distribution
-document.getElementById('toggleDistribution').addEventListener('click', async () => {
-    try {
-        log('Toggling distribution status...');
-        
-        const tx = await contract.toggleDistribution();
-        log('Transaction sent! Waiting for confirmation...');
-        
-        await tx.wait();
-        
-        // Get new status
-        const newStatus = await contract.distributionActive();
-        updateDistributionStatus(newStatus);
-        
-        log(`Distribution ${newStatus ? 'ACTIVATED' : 'DEACTIVATED'} successfully!`, 'success');
-        
-    } catch (error) {
-        console.error('Toggle error:', error);
-        log('Error toggling distribution: ' + error.message, 'error');
-    }
+    // Display contract addresses
+    document.getElementById('distContractAddr').textContent = CONFIG.DISTRIBUTION_CONTRACT;
+    document.getElementById('nftContractAddr').textContent = CONFIG.WINIONS_NFT_CONTRACT;
 });
 
-// Update Single Price
-async function updatePrice(priceType) {
-    try {
-        let newPrice, functionName, inputId;
-        
-        if (priceType === 'single') {
-            inputId = 'newPrice1';
-            functionName = 'setSingleRollPrice';
-        } else if (priceType === 'three') {
-            inputId = 'newPrice3';
-            functionName = 'setThreeRollPrice';
-        } else if (priceType === 'five') {
-            inputId = 'newPrice5';
-            functionName = 'setFiveRollPrice';
-        }
-        
-        const priceInput = document.getElementById(inputId).value;
-        if (!priceInput || parseFloat(priceInput) <= 0) {
-            alert('Please enter a valid price!');
-            return;
-        }
-        
-        newPrice = ethers.utils.parseEther(priceInput);
-        
-        log(`Updating ${priceType} roll price to ${priceInput} ETH...`);
-        
-        const tx = await contract[functionName](newPrice);
-        log('Transaction sent! Waiting for confirmation...');
-        
-        await tx.wait();
-        
-        await loadPrices();
-        document.getElementById(inputId).value = '';
-        
-        log(`Price updated successfully!`, 'success');
-        
-    } catch (error) {
-        console.error('Price update error:', error);
-        log('Error updating price: ' + error.message, 'error');
-    }
-}
-
-// Update All Prices at Once
-async function updateAllPrices() {
-    try {
-        const price1 = document.getElementById('newPrice1').value;
-        const price3 = document.getElementById('newPrice3').value;
-        const price5 = document.getElementById('newPrice5').value;
-        
-        if (!price1 || !price3 || !price5) {
-            alert('Please fill in all three price fields!');
-            return;
-        }
-        
-        if (parseFloat(price1) <= 0 || parseFloat(price3) <= 0 || parseFloat(price5) <= 0) {
-            alert('All prices must be greater than 0!');
-            return;
-        }
-        
-        log('Updating all prices...');
-        
-        // Update all three
-        await updatePrice('single');
-        await updatePrice('three');
-        await updatePrice('five');
-        
-        log('All prices updated successfully!', 'success');
-        
-    } catch (error) {
-        console.error('Bulk price update error:', error);
-        log('Error updating prices: ' + error.message, 'error');
-    }
-}
-
-// Add NFTs to House
-async function addToHouse() {
-    try {
-        const house = document.getElementById('houseSelect').value;
-        const tokenIdsInput = document.getElementById('tokenIds').value;
-        
-        if (!house) {
-            alert('Please select a house!');
-            return;
-        }
-        
-        if (!tokenIdsInput) {
-            alert('Please enter token IDs!');
-            return;
-        }
-        
-        // Parse token IDs
-        const tokenIds = tokenIdsInput
-            .split(',')
-            .map(id => id.trim())
-            .filter(id => id !== '')
-            .map(id => parseInt(id));
-        
-        if (tokenIds.length === 0) {
-            alert('No valid token IDs found!');
-            return;
-        }
-        
-        log(`Adding ${tokenIds.length} NFTs to ${house}...`);
-        
-        const tx = await contract.addToHouseInventory(house, tokenIds);
-        log('Transaction sent! Waiting for confirmation...');
-        
-        await tx.wait();
-        
-        document.getElementById('tokenIds').value = '';
-        await loadHouseInventory();
-        
-        log(`Successfully added ${tokenIds.length} NFTs to ${house}!`, 'success');
-        
-    } catch (error) {
-        console.error('Add to house error:', error);
-        log('Error adding to house: ' + error.message, 'error');
-    }
-}
-
-// Add Single Address to Whitelist
-async function addSingleToWhitelist() {
-    try {
-        const address = document.getElementById('singleAddress').value;
-        const rolls = document.getElementById('singleRolls').value;
-        
-        if (!address || !ethers.utils.isAddress(address)) {
-            alert('Please enter a valid Ethereum address!');
-            return;
-        }
-        
-        if (!rolls || parseInt(rolls) < 0) {
-            alert('Please enter a valid number of rolls!');
-            return;
-        }
-        
-        log(`Adding ${address} to whitelist with ${rolls} free rolls...`);
-        
-        const tx = await contract.updateWhitelist(address, parseInt(rolls));
-        log('Transaction sent! Waiting for confirmation...');
-        
-        await tx.wait();
-        
-        document.getElementById('singleAddress').value = '';
-        document.getElementById('singleRolls').value = '';
-        
-        log(`✅ Successfully whitelisted ${address} with ${rolls} free rolls!`, 'success');
-        alert(`✅ Address whitelisted!\n\n${address}\nFree Rolls: ${rolls}\n\nTransaction confirmed on blockchain.`);
-        
-    } catch (error) {
-        console.error('Whitelist add error:', error);
-        log('Error adding to whitelist: ' + error.message, 'error');
-    }
-}
-
-// Bulk Add to Whitelist
-async function bulkAddToWhitelist() {
-    try {
-        const bulkInput = document.getElementById('bulkWhitelist').value;
-        
-        if (!bulkInput.trim()) {
-            alert('Please enter addresses and rolls!');
-            return;
-        }
-        
-        // Parse CSV format: address, rolls
-        const lines = bulkInput.split('\n').filter(line => line.trim() !== '');
-        const addresses = [];
-        const rolls = [];
-        
-        for (const line of lines) {
-            const parts = line.split(',').map(p => p.trim());
-            if (parts.length !== 2) {
-                alert(`Invalid format on line: ${line}\nExpected: address, rolls`);
-                return;
-            }
-            
-            const address = parts[0];
-            const roll = parseInt(parts[1]);
-            
-            if (!ethers.utils.isAddress(address)) {
-                alert(`Invalid address: ${address}`);
-                return;
-            }
-            
-            if (isNaN(roll) || roll < 0) {
-                alert(`Invalid roll count for ${address}: ${parts[1]}`);
-                return;
-            }
-            
-            addresses.push(address);
-            rolls.push(roll);
-        }
-        
-        if (addresses.length === 0) {
-            alert('No valid entries found!');
-            return;
-        }
-        
-        log(`Adding ${addresses.length} addresses to whitelist...`);
-        
-        const tx = await contract.addToWhitelist(addresses, rolls);
-        log('Transaction sent! Waiting for confirmation...');
-        
-        await tx.wait();
-        
-        document.getElementById('bulkWhitelist').value = '';
-        
-        log(`✅ Successfully added ${addresses.length} addresses to whitelist!`, 'success');
-        alert(`✅ Bulk whitelist complete!\n\n${addresses.length} addresses successfully whitelisted.\n\nTransaction confirmed on blockchain.`);
-        
-    } catch (error) {
-        console.error('Bulk whitelist error:', error);
-        log('Error adding bulk whitelist: ' + error.message, 'error');
-    }
-}
-
-// Remove from Whitelist
-async function removeFromWhitelist() {
-    try {
-        const address = document.getElementById('removeAddress').value;
-        
-        if (!address || !ethers.utils.isAddress(address)) {
-            alert('Please enter a valid Ethereum address!');
-            return;
-        }
-        
-        if (!confirm(`Are you sure you want to remove ${address} from the whitelist?`)) {
-            return;
-        }
-        
-        log(`Removing ${address} from whitelist...`);
-        
-        // Set rolls to 0 to remove
-        const tx = await contract.updateWhitelist(address, 0);
-        log('Transaction sent! Waiting for confirmation...');
-        
-        await tx.wait();
-        
-        document.getElementById('removeAddress').value = '';
-        
-        log(`✅ Successfully removed ${address} from whitelist!`, 'success');
-        alert(`✅ Address removed from whitelist!\n\n${address}\n\nTransaction confirmed on blockchain.`);
-        
-    } catch (error) {
-        console.error('Remove whitelist error:', error);
-        log('Error removing from whitelist: ' + error.message, 'error');
-    }
-}
-
-// Withdraw ETH
-async function withdrawETH() {
-    try {
-        const balance = await provider.getBalance(CONTRACT_ADDRESS);
-        const balanceInEth = ethers.utils.formatEther(balance);
-        
-        if (parseFloat(balanceInEth) === 0) {
-            alert('No ETH to withdraw!');
-            return;
-        }
-        
-        if (!confirm(`Withdraw ${balanceInEth} ETH to your wallet?`)) {
-            return;
-        }
-        
-        log(`Withdrawing ${balanceInEth} ETH...`);
-        
-        const tx = await contract.withdrawETH();
-        log('Transaction sent! Waiting for confirmation...');
-        
-        await tx.wait();
-        
-        await loadDashboard();
-        
-        log(`Successfully withdrew ${balanceInEth} ETH!`, 'success');
-        
-    } catch (error) {
-        console.error('Withdraw error:', error);
-        log('Error withdrawing ETH: ' + error.message, 'error');
-    }
-}
-
-// Emergency Withdraw Single NFT
-async function emergencyWithdrawNFT() {
-    try {
-        const tokenId = document.getElementById('emergencyTokenId').value;
-        
-        if (!tokenId || parseInt(tokenId) < 0) {
-            alert('Please enter a valid token ID!');
-            return;
-        }
-        
-        if (!confirm(`EMERGENCY: Withdraw NFT #${tokenId} to your wallet?`)) {
-            return;
-        }
-        
-        log(`Emergency withdrawing NFT #${tokenId}...`);
-        
-        const tx = await contract.emergencyWithdrawNFT(parseInt(tokenId));
-        log('Transaction sent! Waiting for confirmation...');
-        
-        await tx.wait();
-        
-        document.getElementById('emergencyTokenId').value = '';
-        await loadHouseInventory();
-        
-        log(`Successfully withdrew NFT #${tokenId}!`, 'success');
-        
-    } catch (error) {
-        console.error('Emergency withdraw error:', error);
-        log('Error withdrawing NFT: ' + error.message, 'error');
-    }
-}
-
-// Emergency Withdraw Entire House
-async function emergencyWithdrawHouse() {
-    try {
-        const house = document.getElementById('emergencyHouse').value;
-        
-        if (!house) {
-            alert('Please select a house!');
-            return;
-        }
-        
-        const count = await contract.getHouseInventoryCount(house);
-        
-        if (count.toNumber() === 0) {
-            alert('This house has no NFTs!');
-            return;
-        }
-        
-        if (!confirm(`EMERGENCY: Withdraw all ${count.toNumber()} NFTs from ${house}?`)) {
-            return;
-        }
-        
-        log(`Emergency withdrawing ${count.toNumber()} NFTs from ${house}...`);
-        
-        const tx = await contract.emergencyWithdrawHouse(house);
-        log('Transaction sent! Waiting for confirmation...');
-        
-        await tx.wait();
-        
-        await loadHouseInventory();
-        
-        log(`Successfully withdrew all NFTs from ${house}!`, 'success');
-        
-    } catch (error) {
-        console.error('Emergency house withdraw error:', error);
-        log('Error withdrawing house: ' + error.message, 'error');
-    }
-}
-
-// User Lookup
-async function lookupUser() {
-    try {
-        const address = document.getElementById('lookupAddress').value;
-        
-        if (!address || !ethers.utils.isAddress(address)) {
-            alert('Please enter a valid Ethereum address!');
-            return;
-        }
-        
-        log(`Looking up user: ${address}...`);
-        
-        const rolls = await contract.getUserRolls(address);
-        
-        const resultDiv = document.getElementById('userLookupResult');
-        resultDiv.innerHTML = `
-            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,51,51,0.3);">
-                <strong>Address:</strong> ${address}<br>
-                <strong>Free Rolls:</strong> <span style="color: #00ff00;">${rolls.freeRolls.toNumber()}</span><br>
-                <strong>Purchased Rolls:</strong> <span style="color: #ff9900;">${rolls.paidRolls.toNumber()}</span><br>
-                <strong>Total Rolls:</strong> <span style="color: #ff3333;">${rolls.freeRolls.toNumber() + rolls.paidRolls.toNumber()}</span>
-            </div>
-        `;
-        
-        log('User lookup complete!', 'success');
-        
-    } catch (error) {
-        console.error('Lookup error:', error);
-        log('Error looking up user: ' + error.message, 'error');
-    }
-}
-
-// Activity Log
+// Log Activity
 function log(message, type = 'info') {
     const logDiv = document.getElementById('activityLog');
-    const timestamp = new Date().toLocaleTimeString();
-    
     const entry = document.createElement('div');
     entry.className = `log-entry ${type}`;
-    entry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
-    
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     logDiv.insertBefore(entry, logDiv.firstChild);
     
     // Keep only last 50 entries
@@ -592,19 +29,536 @@ function log(message, type = 'info') {
     }
 }
 
-// Listen for account changes
+// Connect Admin Wallet
+async function connectAdmin() {
+    try {
+        if (typeof window.ethereum === 'undefined') {
+            alert('Please install MetaMask!');
+            return;
+        }
+
+        log('Connecting admin wallet...', 'info');
+
+        const accounts = await window.ethereum.request({ 
+            method: 'eth_requestAccounts' 
+        });
+        
+        adminAddress = accounts[0];
+        
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        
+        distributionContract = new ethers.Contract(
+            CONFIG.DISTRIBUTION_CONTRACT,
+            CONTRACT_ABI,
+            signer
+        );
+        
+        // Check if user is owner
+        const owner = await distributionContract.owner();
+        
+        if (adminAddress.toLowerCase() !== owner.toLowerCase()) {
+            const errorMsg = 'You are not the contract owner!';
+            document.getElementById('adminError').textContent = errorMsg;
+            document.getElementById('adminError').style.display = 'block';
+            throw new Error(errorMsg);
+        }
+        
+        log('✅ Admin wallet connected successfully', 'success');
+        
+        // Show admin panel
+        document.getElementById('adminGate').style.display = 'none';
+        document.getElementById('adminPanel').style.display = 'block';
+        
+        // Load initial status
+        await refreshStatus();
+        await loadPrices();
+        
+    } catch (error) {
+        console.error('Admin connection error:', error);
+        const errorEl = document.getElementById('adminError');
+        errorEl.textContent = error.message;
+        errorEl.style.display = 'block';
+        log(`Connection error: ${error.message}`, 'error');
+    }
+}
+
+// Refresh Status
+async function refreshStatus() {
+    try {
+        log('Refreshing status...', 'info');
+        
+        // Distribution status
+        const isActive = await distributionContract.distributionActive();
+        const statusEl = document.getElementById('distributionStatus');
+        statusEl.textContent = isActive ? 'ACTIVE ✅' : 'INACTIVE ❌';
+        statusEl.className = `status-value ${isActive ? 'active' : 'inactive'}`;
+        
+        // Contract balance
+        const balance = await provider.getBalance(CONFIG.DISTRIBUTION_CONTRACT);
+        document.getElementById('contractBalance').textContent = 
+            `${ethers.formatEther(balance)} ETH`;
+        
+        // Admin wallet
+        document.getElementById('adminWallet').textContent = 
+            `${adminAddress.slice(0, 6)}...${adminAddress.slice(-4)}`;
+        
+        // Count total NFTs
+        let totalNFTs = 0;
+        const houses = await distributionContract.getAllHouses();
+        for (const house of houses) {
+            const count = await distributionContract.getHouseInventoryCount(house);
+            totalNFTs += Number(count);
+        }
+        document.getElementById('totalNFTs').textContent = totalNFTs;
+        
+        log('✅ Status refreshed', 'success');
+        
+    } catch (error) {
+        console.error('Refresh error:', error);
+        log(`❌ Refresh error: ${error.message}`, 'error');
+    }
+}
+
+// Load Inventory
+async function loadInventory() {
+    try {
+        log('Loading inventory...', 'info');
+        
+        const houses = await distributionContract.getAllHouses();
+        const inventoryDisplay = document.getElementById('inventoryDisplay');
+        inventoryDisplay.innerHTML = '';
+        
+        for (const house of houses) {
+            const count = await distributionContract.getHouseInventoryCount(house);
+            
+            const card = document.createElement('div');
+            card.className = 'house-card';
+            card.innerHTML = `
+                <div class="house-name">${house}</div>
+                <div class="house-count">${count} NFTs</div>
+            `;
+            inventoryDisplay.appendChild(card);
+        }
+        
+        log('✅ Inventory loaded', 'success');
+        
+    } catch (error) {
+        console.error('Load inventory error:', error);
+        log(`❌ Load inventory error: ${error.message}`, 'error');
+    }
+}
+
+// Add to House Inventory
+async function addToHouseInventory() {
+    try {
+        const houseName = document.getElementById('houseSelect').value;
+        const tokenIdsText = document.getElementById('tokenIds').value;
+        
+        if (!houseName) {
+            alert('Please select a house');
+            return;
+        }
+        
+        if (!tokenIdsText.trim()) {
+            alert('Please enter token IDs');
+            return;
+        }
+        
+        // Parse token IDs - PROPERLY FIXED
+        const tokenIds = tokenIdsText
+            .split(',')                      // Split by comma
+            .map(id => id.trim())            // Remove whitespace
+            .filter(id => id.length > 0)     // Remove empty strings
+            .map(id => {
+                const num = parseInt(id, 10);
+                if (isNaN(num)) {
+                    log(`⚠️ Warning: "${id}" is not a valid number, skipping`, 'error');
+                }
+                return num;
+            })
+            .filter(id => !isNaN(id));       // Remove NaN values
+        
+        if (tokenIds.length === 0) {
+            alert('No valid token IDs found. Please check your input.');
+            log('❌ No valid token IDs found', 'error');
+            return;
+        }
+        
+        console.log('Parsed token IDs:', tokenIds);
+        log(`Parsed ${tokenIds.length} token IDs`, 'info');
+        
+        log(`Adding ${tokenIds.length} NFTs to ${houseName}...`, 'info');
+        
+        const tx = await distributionContract.addToHouseInventory(houseName, tokenIds);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        log(`TX Hash: ${tx.hash}`, 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Successfully added ${tokenIds.length} NFTs to ${houseName}`, 'success');
+        
+        // Clear form
+        document.getElementById('tokenIds').value = '';
+        
+        // Refresh
+        await refreshStatus();
+        await loadInventory();
+        
+    } catch (error) {
+        console.error('Add inventory error:', error);
+        
+        if (error.message.includes('Contract does not own this token')) {
+            log('❌ Error: Contract does not own one or more of these tokens. Transfer them first!', 'error');
+            alert('Error: Contract does not own one or more of these tokens. Please transfer them to the contract first!');
+        } else {
+            log(`❌ Error: ${error.message}`, 'error');
+            alert(`Error: ${error.message}`);
+        }
+    }
+}
+
+// Add Single to Whitelist
+async function addSingleToWhitelist() {
+    try {
+        const address = document.getElementById('whitelistAddress').value;
+        const rolls = document.getElementById('freeRolls').value;
+        
+        if (!address || !ethers.isAddress(address)) {
+            alert('Please enter a valid address');
+            return;
+        }
+        
+        if (!rolls || rolls < 0) {
+            alert('Please enter a valid number of rolls');
+            return;
+        }
+        
+        log(`Adding ${address} to whitelist with ${rolls} rolls...`, 'info');
+        
+        const tx = await distributionContract.updateWhitelist(address, rolls);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Added ${address.slice(0, 6)}...${address.slice(-4)} with ${rolls} rolls`, 'success');
+        
+        // Clear form
+        document.getElementById('whitelistAddress').value = '';
+        document.getElementById('freeRolls').value = '';
+        
+    } catch (error) {
+        console.error('Whitelist error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Batch Add to Whitelist
+async function batchAddToWhitelist() {
+    try {
+        const batchText = document.getElementById('batchWhitelist').value;
+        
+        if (!batchText.trim()) {
+            alert('Please enter addresses and rolls');
+            return;
+        }
+        
+        // Parse batch input
+        const lines = batchText.split('\n').filter(line => line.trim());
+        const addresses = [];
+        const rolls = [];
+        
+        for (const line of lines) {
+            const parts = line.split(',').map(p => p.trim());
+            if (parts.length !== 2) continue;
+            
+            const [address, rollCount] = parts;
+            if (ethers.isAddress(address)) {
+                addresses.push(address);
+                rolls.push(parseInt(rollCount));
+            } else {
+                log(`⚠️ Invalid address skipped: ${address}`, 'error');
+            }
+        }
+        
+        if (addresses.length === 0) {
+            alert('No valid addresses found');
+            return;
+        }
+        
+        log(`Batch adding ${addresses.length} addresses to whitelist...`, 'info');
+        
+        const tx = await distributionContract.addToWhitelist(addresses, rolls);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Successfully added ${addresses.length} addresses to whitelist`, 'success');
+        
+        // Clear form
+        document.getElementById('batchWhitelist').value = '';
+        
+    } catch (error) {
+        console.error('Batch whitelist error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Load Prices
+async function loadPrices() {
+    try {
+        const [single, three, five] = await distributionContract.getPrices();
+        
+        document.getElementById('currentPrices').innerHTML = `
+            <strong>Current Prices:</strong><br>
+            1 Roll: ${ethers.formatEther(single)} ETH<br>
+            3 Rolls: ${ethers.formatEther(three)} ETH<br>
+            5 Rolls: ${ethers.formatEther(five)} ETH
+        `;
+        
+    } catch (error) {
+        console.error('Load prices error:', error);
+        log(`❌ Load prices error: ${error.message}`, 'error');
+    }
+}
+
+// Update Single Price
+async function updateSinglePrice() {
+    try {
+        const priceETH = document.getElementById('singlePrice').value;
+        if (!priceETH) {
+            alert('Please enter a price');
+            return;
+        }
+        
+        const priceWei = ethers.parseEther(priceETH);
+        
+        log(`Updating single roll price to ${priceETH} ETH...`, 'info');
+        
+        const tx = await distributionContract.setSingleRollPrice(priceWei);
+        await tx.wait();
+        
+        log(`✅ Single roll price updated to ${priceETH} ETH`, 'success');
+        
+        await loadPrices();
+        document.getElementById('singlePrice').value = '';
+        
+    } catch (error) {
+        console.error('Update price error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Update Three Price
+async function updateThreePrice() {
+    try {
+        const priceETH = document.getElementById('threePrice').value;
+        if (!priceETH) {
+            alert('Please enter a price');
+            return;
+        }
+        
+        const priceWei = ethers.parseEther(priceETH);
+        
+        log(`Updating 3-roll price to ${priceETH} ETH...`, 'info');
+        
+        const tx = await distributionContract.setThreeRollPrice(priceWei);
+        await tx.wait();
+        
+        log(`✅ 3-roll price updated to ${priceETH} ETH`, 'success');
+        
+        await loadPrices();
+        document.getElementById('threePrice').value = '';
+        
+    } catch (error) {
+        console.error('Update price error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Update Five Price
+async function updateFivePrice() {
+    try {
+        const priceETH = document.getElementById('fivePrice').value;
+        if (!priceETH) {
+            alert('Please enter a price');
+            return;
+        }
+        
+        const priceWei = ethers.parseEther(priceETH);
+        
+        log(`Updating 5-roll price to ${priceETH} ETH...`, 'info');
+        
+        const tx = await distributionContract.setFiveRollPrice(priceWei);
+        await tx.wait();
+        
+        log(`✅ 5-roll price updated to ${priceETH} ETH`, 'success');
+        
+        await loadPrices();
+        document.getElementById('fivePrice').value = '';
+        
+    } catch (error) {
+        console.error('Update price error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Toggle Distribution
+async function toggleDistribution() {
+    try {
+        const currentStatus = document.getElementById('distributionStatus').textContent;
+        
+        if (!confirm(`Are you sure you want to toggle distribution? Current status: ${currentStatus}`)) {
+            return;
+        }
+        
+        log('Toggling distribution...', 'info');
+        
+        const tx = await distributionContract.toggleDistribution();
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log('✅ Distribution status toggled', 'success');
+        
+        await refreshStatus();
+        
+    } catch (error) {
+        console.error('Toggle error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Withdraw ETH
+async function withdrawETH() {
+    try {
+        const balance = await provider.getBalance(CONFIG.DISTRIBUTION_CONTRACT);
+        const balanceETH = ethers.formatEther(balance);
+        
+        if (balance === 0n) {
+            alert('No ETH to withdraw');
+            return;
+        }
+        
+        if (!confirm(`Withdraw ${balanceETH} ETH to your wallet?`)) {
+            return;
+        }
+        
+        log(`Withdrawing ${balanceETH} ETH...`, 'info');
+        
+        const tx = await distributionContract.withdrawETH();
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Withdrew ${balanceETH} ETH`, 'success');
+        
+        await refreshStatus();
+        
+    } catch (error) {
+        console.error('Withdraw error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Emergency Withdraw NFT
+async function emergencyWithdrawNFT() {
+    try {
+        const tokenId = document.getElementById('emergencyTokenId').value;
+        
+        if (!tokenId) {
+            alert('Please enter a token ID');
+            return;
+        }
+        
+        if (!confirm(`Emergency withdraw token #${tokenId}? This should only be used in emergencies!`)) {
+            return;
+        }
+        
+        log(`Emergency withdrawing token #${tokenId}...`, 'info');
+        
+        const tx = await distributionContract.emergencyWithdrawNFT(tokenId);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Emergency withdrew token #${tokenId}`, 'success');
+        
+        document.getElementById('emergencyTokenId').value = '';
+        
+        await refreshStatus();
+        await loadInventory();
+        
+    } catch (error) {
+        console.error('Emergency withdraw error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Emergency Withdraw House
+async function emergencyWithdrawHouse() {
+    try {
+        const houseName = document.getElementById('emergencyHouse').value;
+        
+        if (!houseName) {
+            alert('Please select a house');
+            return;
+        }
+        
+        if (!confirm(`Emergency withdraw ALL NFTs from ${houseName}? This should only be used in emergencies!`)) {
+            return;
+        }
+        
+        log(`Emergency withdrawing all NFTs from ${houseName}...`, 'info');
+        
+        const tx = await distributionContract.emergencyWithdrawHouse(houseName);
+        
+        log('Transaction sent, waiting for confirmation...', 'info');
+        
+        await tx.wait();
+        
+        log(`✅ Emergency withdrew all NFTs from ${houseName}`, 'success');
+        
+        document.getElementById('emergencyHouse').value = '';
+        
+        await refreshStatus();
+        await loadInventory();
+        
+    } catch (error) {
+        console.error('Emergency withdraw error:', error);
+        log(`❌ Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// View on Etherscan
+function viewOnEtherscan() {
+    window.open(`https://etherscan.io/address/${CONFIG.DISTRIBUTION_CONTRACT}`, '_blank');
+}
+
+// Handle account/network changes
 if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
-        if (accounts.length === 0) {
-            log('Wallet disconnected', 'error');
-        } else {
-            log('Account changed - please refresh the page', 'error');
-            setTimeout(() => window.location.reload(), 2000);
-        }
+        log('⚠️ Account changed, reloading...', 'info');
+        setTimeout(() => location.reload(), 1000);
     });
-
+    
     window.ethereum.on('chainChanged', () => {
-        log('Network changed - please refresh the page', 'error');
-        setTimeout(() => window.location.reload(), 2000);
+        log('⚠️ Network changed, reloading...', 'info');
+        setTimeout(() => location.reload(), 1000);
     });
 }
