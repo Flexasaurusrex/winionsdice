@@ -62,6 +62,7 @@ async function connectWallet() {
     try {
         connectButton.disabled = true;
         connectButton.textContent = 'CONNECTING...';
+        walletStatus.style.display = 'flex';
         walletStatus.textContent = 'Opening wallet connection...';
         
         // Check if MetaMask or other Web3 provider exists
@@ -100,8 +101,25 @@ async function connectWallet() {
         
     } catch (error) {
         console.error('Wallet connection error:', error);
-        verificationStatus.className = 'verification-status error';
-        verificationStatus.innerHTML = `❌ ${error.message || 'Failed to connect wallet'}`;
+        
+        // Check if it's a wallet conflict error
+        if (error.message && error.message.includes('redefine property')) {
+            verificationStatus.className = 'verification-status error';
+            verificationStatus.innerHTML = `
+                ❌ <strong>Wallet Conflict Detected</strong><br>
+                You have multiple wallet extensions installed that are conflicting.<br>
+                <strong>Quick Fix:</strong> Disable all wallet extensions except one (keep MetaMask), then refresh the page.<br>
+                <small>This is a browser extension issue, not a problem with the site.</small>
+            `;
+        } else if (error.code === 4001) {
+            // User rejected the connection
+            verificationStatus.className = 'verification-status error';
+            verificationStatus.innerHTML = `❌ Connection rejected. Please try again and approve the connection in your wallet.`;
+        } else {
+            verificationStatus.className = 'verification-status error';
+            verificationStatus.innerHTML = `❌ ${error.message || 'Failed to connect wallet'}<br><small>If this persists, try refreshing the page or using a different browser.</small>`;
+        }
+        
         connectButton.disabled = false;
         connectButton.textContent = 'CONNECT WALLET';
     }
