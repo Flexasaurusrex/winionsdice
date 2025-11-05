@@ -168,39 +168,24 @@ async function connectWallet() {
     try {
         // Mobile detection
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isInWalletBrowser = typeof window.ethereum !== 'undefined';
+        
+        if (!isInWalletBrowser && isMobile) {
+            // User is on mobile but NOT in a wallet browser
+            showMobileInstructions(isIOS);
+            return;
+        }
         
         if (typeof window.ethereum === 'undefined') {
-            if (isMobile) {
-                // Show options for mobile wallets
-                showToast('Opening wallet...', 'info');
-                
-                // Universal deep link - works with multiple wallets
-                const currentUrl = window.location.href.replace(/^https?:\/\//, '');
-                
-                // Try MetaMask first (most popular)
-                const metamaskLink = `https://metamask.app.link/dapp/${currentUrl}`;
-                
-                // Alternative: WalletConnect or other options
-                window.location.href = metamaskLink;
-                
-                // Fallback after 2 seconds
-                setTimeout(() => {
-                    if (confirm('No wallet detected. Would you like to see wallet options?')) {
-                        window.open('https://ethereum.org/wallets/find-wallet/', '_blank');
-                    }
-                }, 2000);
-                
-                return;
-            } else {
-                // Desktop - show wallet options
-                showToast('No wallet detected. Please install a Web3 wallet.', 'warning');
-                setTimeout(() => {
-                    if (confirm('No Web3 wallet detected. Would you like to see wallet options?')) {
-                        window.open('https://ethereum.org/wallets/find-wallet/', '_blank');
-                    }
-                }, 1000);
-                return;
-            }
+            // Desktop - no wallet detected
+            showToast('No wallet detected. Please install a Web3 wallet.', 'warning');
+            setTimeout(() => {
+                if (confirm('No Web3 wallet detected. Would you like to see wallet options?')) {
+                    window.open('https://ethereum.org/wallets/find-wallet/', '_blank');
+                }
+            }, 1000);
+            return;
         }
 
         // Detect which wallet is connected
@@ -272,6 +257,251 @@ async function connectWallet() {
         
         document.getElementById('connectButton').disabled = false;
         document.getElementById('walletStatus').style.display = 'none';
+    }
+}
+
+// Show mobile-specific instructions
+function showMobileInstructions(isIOS) {
+    const currentUrl = window.location.href;
+    
+    // Create custom modal
+    const modal = document.createElement('div');
+    modal.className = 'mobile-instructions-modal';
+    modal.innerHTML = `
+        <div class="mobile-modal-content">
+            <h2>📱 Connect on Mobile</h2>
+            
+            <div class="instruction-step">
+                <div class="step-number">1</div>
+                <div class="step-text">
+                    <strong>Open MetaMask App</strong>
+                    <p>Launch the MetaMask app on your phone</p>
+                </div>
+            </div>
+            
+            <div class="instruction-step">
+                <div class="step-number">2</div>
+                <div class="step-text">
+                    <strong>Tap the Browser Tab</strong>
+                    <p>Look for the browser icon (usually bottom center)</p>
+                </div>
+            </div>
+            
+            <div class="instruction-step">
+                <div class="step-number">3</div>
+                <div class="step-text">
+                    <strong>Paste this URL:</strong>
+                    <div class="url-copy-box">
+                        <input type="text" readonly value="${currentUrl}" id="urlToCopy">
+                        <button onclick="copyUrlToClipboard()" class="copy-btn">COPY</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="instruction-step">
+                <div class="step-number">4</div>
+                <div class="step-text">
+                    <strong>Connect Your Wallet</strong>
+                    <p>Click "Connect Wallet" when the site loads</p>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button onclick="tryDeepLink()" class="btn-primary">TRY OPENING IN APP</button>
+                <button onclick="closeInstructionsModal()" class="btn-secondary">CLOSE</button>
+            </div>
+            
+            <p class="modal-note">
+                💡 Works with MetaMask, Coinbase Wallet, Trust Wallet, Rainbow, and other mobile wallets
+            </p>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Inject modal styles
+    if (!document.getElementById('mobile-modal-styles')) {
+        const styles = document.createElement('style');
+        styles.id = 'mobile-modal-styles';
+        styles.textContent = `
+            .mobile-instructions-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.95);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                overflow-y: auto;
+            }
+            
+            .mobile-modal-content {
+                background: linear-gradient(135deg, #1a0000 0%, #330000 100%);
+                border: 2px solid #ff1a1a;
+                border-radius: 15px;
+                padding: 30px;
+                max-width: 500px;
+                width: 100%;
+                box-shadow: 0 20px 60px rgba(255, 26, 26, 0.5);
+            }
+            
+            .mobile-modal-content h2 {
+                color: #ff1a1a;
+                text-align: center;
+                margin-bottom: 30px;
+                font-size: 28px;
+            }
+            
+            .instruction-step {
+                display: flex;
+                gap: 15px;
+                margin-bottom: 25px;
+                align-items: flex-start;
+            }
+            
+            .step-number {
+                background: #ff1a1a;
+                color: #fff;
+                width: 35px;
+                height: 35px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                font-size: 18px;
+                flex-shrink: 0;
+            }
+            
+            .step-text {
+                flex: 1;
+            }
+            
+            .step-text strong {
+                color: #fff;
+                display: block;
+                margin-bottom: 5px;
+                font-size: 16px;
+            }
+            
+            .step-text p {
+                color: #999;
+                margin: 0;
+                font-size: 14px;
+            }
+            
+            .url-copy-box {
+                display: flex;
+                gap: 10px;
+                margin-top: 10px;
+            }
+            
+            .url-copy-box input {
+                flex: 1;
+                background: #1a1a1a;
+                border: 1px solid #ff1a1a;
+                color: #fff;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 12px;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .copy-btn {
+                background: #ff1a1a;
+                border: none;
+                color: #fff;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: bold;
+                cursor: pointer;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .copy-btn:active {
+                transform: scale(0.95);
+            }
+            
+            .modal-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                margin-top: 30px;
+            }
+            
+            .btn-primary, .btn-secondary {
+                padding: 15px;
+                border: 2px solid #ff1a1a;
+                border-radius: 5px;
+                font-weight: bold;
+                cursor: pointer;
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+            }
+            
+            .btn-primary {
+                background: #ff1a1a;
+                color: #fff;
+            }
+            
+            .btn-secondary {
+                background: transparent;
+                color: #ff1a1a;
+            }
+            
+            .modal-note {
+                text-align: center;
+                color: #999;
+                font-size: 12px;
+                margin-top: 20px;
+            }
+        `;
+        document.head.appendChild(styles);
+    }
+}
+
+// Copy URL to clipboard
+function copyUrlToClipboard() {
+    const input = document.getElementById('urlToCopy');
+    input.select();
+    input.setSelectionRange(0, 99999); // For mobile
+    
+    try {
+        document.execCommand('copy');
+        showToast('URL copied! Now paste it in MetaMask browser.', 'success');
+    } catch (err) {
+        // Fallback for modern browsers
+        navigator.clipboard.writeText(input.value).then(() => {
+            showToast('URL copied! Now paste it in MetaMask browser.', 'success');
+        }).catch(() => {
+            showToast('Please manually copy the URL', 'warning');
+        });
+    }
+}
+
+// Try deep link (backup option)
+function tryDeepLink() {
+    const currentUrl = window.location.href.replace(/^https?:\/\//, '');
+    const metamaskLink = `https://metamask.app.link/dapp/${currentUrl}`;
+    
+    showToast('Attempting to open MetaMask...', 'info');
+    window.location.href = metamaskLink;
+    
+    // If it doesn't work, the modal stays open for manual instructions
+    setTimeout(() => {
+        showToast('If MetaMask didn\'t open, follow the instructions above.', 'warning');
+    }, 3000);
+}
+
+// Close instructions modal
+function closeInstructionsModal() {
+    const modal = document.querySelector('.mobile-instructions-modal');
+    if (modal) {
+        modal.remove();
     }
 }
 
