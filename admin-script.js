@@ -337,7 +337,8 @@ async function addSingleToWhitelist() {
         document.getElementById('singleAddress').value = '';
         document.getElementById('singleRolls').value = '';
         
-        log(`Successfully added ${address} to whitelist!`, 'success');
+        log(`✅ Successfully whitelisted ${address} with ${rolls} free rolls!`, 'success');
+        alert(`✅ Address whitelisted!\n\n${address}\nFree Rolls: ${rolls}\n\nTransaction confirmed on blockchain.`);
         
     } catch (error) {
         console.error('Whitelist add error:', error);
@@ -398,7 +399,8 @@ async function bulkAddToWhitelist() {
         
         document.getElementById('bulkWhitelist').value = '';
         
-        log(`Successfully added ${addresses.length} addresses to whitelist!`, 'success');
+        log(`✅ Successfully added ${addresses.length} addresses to whitelist!`, 'success');
+        alert(`✅ Bulk whitelist complete!\n\n${addresses.length} addresses successfully whitelisted.\n\nTransaction confirmed on blockchain.`);
         
     } catch (error) {
         console.error('Bulk whitelist error:', error);
@@ -430,7 +432,8 @@ async function removeFromWhitelist() {
         
         document.getElementById('removeAddress').value = '';
         
-        log(`Successfully removed ${address} from whitelist!`, 'success');
+        log(`✅ Successfully removed ${address} from whitelist!`, 'success');
+        alert(`✅ Address removed from whitelist!\n\n${address}\n\nTransaction confirmed on blockchain.`);
         
     } catch (error) {
         console.error('Remove whitelist error:', error);
