@@ -6,27 +6,27 @@
     <title>Winions Dice Roller</title>
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Web3 Libraries -->
+    <!-- Ethers.js v6 -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@web3modal/standalone@2.4.3/dist/index.umd.js"></script>
     
     <!-- Configuration -->
     <script src="config.js"></script>
+    
+    <!-- Contract ABI -->
+    <script src="contract-abi.js"></script>
 </head>
 <body>
-    <!-- Wallet Connection Gate -->
-    <div class="container" id="walletGate">
+    <!-- Wallet Connection Screen -->
+    <div class="container" id="walletScreen">
         <h1>WINIONS DICE ROLLER</h1>
-        <p class="subtitle">Connect your wallet to verify Winion ownership</p>
+        <p class="subtitle">Connect your wallet to begin</p>
         
         <div class="gate-content">
-            <p class="gate-description">
-                Only Winion holders can access the dice roller. Connect your wallet to verify you own at least one Winion NFT.
-            </p>
+            <img src="havoc.gif" alt="Winion" class="gate-winion-gif" onerror="this.style.display='none'">
             
-            <div class="gate-winion-display">
-                <img src="havoc.gif" alt="Winion" class="gate-winion-gif">
-            </div>
+            <p class="gate-description">
+                Connect your wallet to check your rolls and start rolling for Winions.
+            </p>
             
             <div id="walletStatus" class="wallet-status" style="display: none;"></div>
             
@@ -38,13 +38,58 @@
         </div>
     </div>
 
+    <!-- Rolls Status Screen -->
+    <div class="container" id="rollsScreen" style="display: none;">
+        <h1>YOUR ROLLS</h1>
+        <p class="subtitle">Check your available rolls</p>
+        
+        <div class="rolls-display">
+            <div class="roll-type">
+                <h3>🎁 FREE ROLLS</h3>
+                <div class="roll-count" id="freeRollsCount">0</div>
+                <p>Whitelist rolls</p>
+            </div>
+            
+            <div class="roll-type">
+                <h3>💎 PURCHASED ROLLS</h3>
+                <div class="roll-count" id="paidRollsCount">0</div>
+                <p>Owned rolls</p>
+            </div>
+        </div>
+        
+        <div class="purchase-section">
+            <h3>PURCHASE MORE ROLLS</h3>
+            <div class="purchase-options">
+                <button class="purchase-button" onclick="purchaseRolls(1)">
+                    <span class="package">1 ROLL</span>
+                    <span class="price" id="price1">0.0111 ETH</span>
+                </button>
+                <button class="purchase-button popular" onclick="purchaseRolls(3)">
+                    <span class="badge">POPULAR</span>
+                    <span class="package">3 ROLLS</span>
+                    <span class="price" id="price3">0.03 ETH</span>
+                    <span class="savings">SAVE 10%</span>
+                </button>
+                <button class="purchase-button" onclick="purchaseRolls(5)">
+                    <span class="package">5 ROLLS</span>
+                    <span class="price" id="price5">0.045 ETH</span>
+                    <span class="savings">SAVE 19%</span>
+                </button>
+            </div>
+        </div>
+        
+        <button class="action-button" id="continueToSchool">
+            CONTINUE TO ROLL →
+        </button>
+    </div>
+
     <!-- School Selection Screen -->
-    <div class="container" id="schoolSelection" style="display: none;">
+    <div class="container" id="schoolScreen" style="display: none;">
         <h1>ROLL TO MINT NEW WINION</h1>
         <p class="subtitle">Roll one of the D66 dice below</p>
         
         <p class="description">
-            the winions value three different schools of mahyem which determine the life schemes of each winion. almost like choosing a religion. decide for this winion you are summoning to which school they will belong. choose wisly.
+            the winions value three different schools of mayhem which determine the life schemes of each winion. almost like choosing a religion. decide for this winion you are summoning to which school they will belong. choose wisely.
         </p>
 
         <div class="dice-row">
@@ -70,7 +115,7 @@
     </div>
 
     <!-- Dice Rolling Screen -->
-    <div class="container" id="diceRolling" style="display: none;">
+    <div class="container" id="diceScreen" style="display: none;">
         <h1>ROLL FOR YOUR HOUSE</h1>
         <p class="subtitle school-chosen">School of <span id="chosenSchool"></span></p>
 
@@ -85,18 +130,26 @@
             <span class="total-value" id="totalValue">0</span>
             <span class="total-range">Range: 66-396</span>
         </div>
+        
+        <div id="houseResult" class="house-result-display" style="display: none;">
+            <h3>YOU ROLLED INTO:</h3>
+            <div class="house-name-large" id="rolledHouseName"></div>
+            <button class="claim-button" id="claimButton">CLAIM YOUR WINION</button>
+        </div>
     </div>
 
-    <!-- Modal Popup -->
-    <div class="modal" id="modal">
+    <!-- Success Modal -->
+    <div class="modal" id="successModal" style="display: none;">
         <div class="modal-content">
-            <h2>YOU HAVE BEEN SORTED INTO...</h2>
-            <div class="house-placeholder" id="housePlaceholder"></div>
-            <h3 id="houseName"></h3>
-            <p class="your-roll">Your Roll: <strong id="rollTotal"></strong></p>
-            <div class="rarity-badge" id="houseRarity"></div>
-            <br>
-            <button class="close-button" id="closeButton">ROLL AGAIN</button>
+            <h2>🎉 WINION CLAIMED! 🎉</h2>
+            <img id="claimedNFTImage" src="" alt="Your Winion" class="claimed-nft-image">
+            <h3 id="claimedHouseName"></h3>
+            <p class="claimed-details">
+                Token ID: <strong id="claimedTokenId"></strong><br>
+                Roll Total: <strong id="claimedRollTotal"></strong>
+            </p>
+            <a id="etherscanLink" href="" target="_blank" class="etherscan-link">View on Etherscan →</a>
+            <button class="close-button" onclick="resetToRollsScreen()">ROLL AGAIN</button>
         </div>
     </div>
 
