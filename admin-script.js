@@ -46,7 +46,7 @@ async function connectAdmin() {
         
         distributionContract = new ethers.Contract(
             CONFIG.DISTRIBUTION_CONTRACT,
-            DISTRIBUTION_CONTRACT_ABI,
+            CONTRACT_ABI,
             signer
         );
         
