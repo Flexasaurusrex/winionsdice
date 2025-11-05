@@ -1,241 +1,217 @@
-// Winions Contract Address
-const WINIONS_CONTRACT = CONFIG.CONTRACT_ADDRESS;
-const ETHEREUM_MAINNET = CONFIG.CHAIN_ID;
-const DEVELOPMENT_MODE = CONFIG.DEVELOPMENT_MODE;
-const SKIP_VERIFICATION = CONFIG.SKIP_VERIFICATION;
+// Winions Dice Roller - Complete Integration Script
+// Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
-// Web3 Variables
-let provider = null;
-let signer = null;
-let userAddress = null;
-let selectedSchool = '';
+let provider;
+let signer;
+let userAddress;
+let distributionContract;
+let currentSchool = null;
+let currentRollTotal = 0;
+let currentHouseName = '';
 
-// ERC721 ABI (just the balanceOf function we need)
-const ERC721_ABI = [
-    "function balanceOf(address owner) view returns (uint256)"
-];
-
-const houseData = {
-    'House of Havoc': { min: 66, max: 175, image: 'havoc.gif', rarity: 'COMMON', class: 'common-badge' },
-    'House of Misfits': { min: 176, max: 230, image: 'misfit.gif', rarity: 'COMMON', class: 'common-badge' },
-    'House of Frog': { min: 231, max: 263, image: 'frog.gif', rarity: 'UNCOMMON', class: 'uncommon-badge' },
-    'House of Theory': { min: 264, max: 290, image: 'theory.gif', rarity: 'UNCOMMON', class: 'uncommon-badge' },
-    'House of Spectrum': { min: 291, max: 312, image: 'spectrum.gif', rarity: 'UNCOMMON', class: 'uncommon-badge' },
-    'House of Clay': { min: 313, max: 329, image: 'clay.gif', rarity: 'UNCOMMON', class: 'uncommon-badge' },
-    'House of Stencil': { min: 330, max: 345, image: 'stencil.gif', rarity: 'UNCOMMON', class: 'uncommon-badge' },
-    'House of Royal': { min: 346, max: 356, image: 'royal.gif', rarity: 'RARE', class: 'rare-badge' },
-    'House of Shadows': { min: 357, max: 367, image: 'shadow.gif', rarity: 'RARE', class: 'rare-badge' },
-    'House of Hellish': { min: 368, max: 378, image: 'hellish.gif', rarity: 'RARE', class: 'rare-badge' },
-    'House of Hologram': { min: 379, max: 389, image: 'hologram.gif', rarity: 'ULTRA RARE', class: 'ultra-rare-badge' },
-    'House of Gold': { min: 390, max: 394, image: 'gold.gif', rarity: 'ULTRA RARE', class: 'ultra-rare-badge' },
-    'House of Death': { min: 395, max: 396, image: 'winionswhat.gif', rarity: 'MYTHIC', class: 'mythic-badge' }
-};
-
-// DOM Elements
-const walletGate = document.getElementById('walletGate');
-const schoolButtons = document.querySelectorAll('.school-button');
-const schoolSelection = document.getElementById('schoolSelection');
-const diceRolling = document.getElementById('diceRolling');
-const chosenSchoolSpan = document.getElementById('chosenSchool');
-const rollButton = document.getElementById('rollButton');
-const closeButton = document.getElementById('closeButton');
-const diceDisplay = document.getElementById('diceDisplay');
-const totalValue = document.getElementById('totalValue');
-const modal = document.getElementById('modal');
-const housePlaceholder = document.getElementById('housePlaceholder');
-const houseName = document.getElementById('houseName');
-const houseRarity = document.getElementById('houseRarity');
-const rollTotal = document.getElementById('rollTotal');
-
-// Wallet Gate Elements
-const connectButton = document.getElementById('connectButton');
-const walletStatus = document.getElementById('walletStatus');
-const verificationStatus = document.getElementById('verificationStatus');
-
-// Initialize Wallet Connection
-async function initWallet() {
-    connectButton.addEventListener('click', connectWallet);
-}
+// Initialize on page load
+window.addEventListener('load', async () => {
+    document.getElementById('connectButton').addEventListener('click', connectWallet);
+    document.getElementById('continueToSchool').addEventListener('click', showSchoolScreen);
+    
+    // School selection
+    document.querySelectorAll('.school-button').forEach(button => {
+        button.addEventListener('click', () => selectSchool(button.dataset.school));
+    });
+    
+    // Dice rolling
+    document.getElementById('rollButton').addEventListener('click', rollDice);
+    
+    // Claim button
+    document.getElementById('claimButton').addEventListener('click', claimWinion);
+});
 
 // Connect Wallet
 async function connectWallet() {
     try {
-        connectButton.disabled = true;
-        connectButton.textContent = 'CONNECTING...';
-        walletStatus.style.display = 'flex';
-        walletStatus.textContent = 'Opening wallet connection...';
-        
-        // Check if MetaMask or other Web3 provider exists
-        if (typeof window.ethereum !== 'undefined') {
-            // Request account access
-            const accounts = await window.ethereum.request({ 
-                method: 'eth_requestAccounts' 
-            });
-            
-            userAddress = accounts[0];
-            
-            // Create provider
-            provider = new ethers.BrowserProvider(window.ethereum);
-            signer = await provider.getSigner();
-            
-            // Show connected address
-            const shortAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
-            walletStatus.textContent = `Connected: ${shortAddress}`;
-            
-            // Check network
-            const network = await provider.getNetwork();
-            if (Number(network.chainId) !== ETHEREUM_MAINNET) {
-                verificationStatus.className = 'verification-status error';
-                verificationStatus.innerHTML = '⚠️ Please switch to Ethereum Mainnet';
-                connectButton.disabled = false;
-                connectButton.textContent = 'CONNECT WALLET';
-                return;
-            }
-            
-            // Verify NFT ownership
-            await verifyNFTOwnership();
-            
-        } else {
-            throw new Error('No Web3 wallet found. Please install MetaMask or another Web3 wallet.');
+        if (typeof window.ethereum === 'undefined') {
+            alert('Please install MetaMask to use this app!');
+            return;
         }
+
+        document.getElementById('walletStatus').style.display = 'block';
+        document.getElementById('walletStatus').textContent = 'Opening wallet connection...';
+        document.getElementById('connectButton').disabled = true;
+
+        // Request account access
+        const accounts = await window.ethereum.request({ 
+            method: 'eth_requestAccounts' 
+        });
+        
+        userAddress = accounts[0];
+        
+        // Setup ethers provider
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        
+        // Initialize contract
+        distributionContract = new ethers.Contract(
+            CONFIG.DISTRIBUTION_CONTRACT,
+            DISTRIBUTION_CONTRACT_ABI,
+            signer
+        );
+        
+        // Check if on correct network
+        const network = await provider.getNetwork();
+        if (network.chainId !== BigInt(CONFIG.CHAIN_ID)) {
+            throw new Error('Please switch to Ethereum Mainnet');
+        }
+        
+        document.getElementById('walletStatus').textContent = `Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+        
+        // Load user's rolls
+        await loadUserRolls();
         
     } catch (error) {
         console.error('Wallet connection error:', error);
         
-        // Check if it's a wallet conflict error
-        if (error.message && error.message.includes('redefine property')) {
-            verificationStatus.className = 'verification-status error';
-            verificationStatus.innerHTML = `
-                ❌ <strong>Wallet Conflict Detected</strong><br>
-                You have multiple wallet extensions installed that are conflicting.<br>
-                <strong>Quick Fix:</strong> Disable all wallet extensions except one (keep MetaMask), then refresh the page.<br>
-                <small>This is a browser extension issue, not a problem with the site.</small>
-            `;
-        } else if (error.code === 4001) {
-            // User rejected the connection
-            verificationStatus.className = 'verification-status error';
-            verificationStatus.innerHTML = `❌ Connection rejected. Please try again and approve the connection in your wallet.`;
+        if (error.code === 4001) {
+            document.getElementById('verificationStatus').innerHTML = 
+                '<p class="error">❌ Connection rejected. Please try again and approve the connection in your wallet.</p>';
+        } else if (error.message && error.message.includes('ethereum')) {
+            document.getElementById('verificationStatus').innerHTML = 
+                '<p class="error">❌ Wallet Conflict Detected<br>You have multiple wallet extensions installed that are conflicting.<br><strong>Quick Fix:</strong> Disable all wallet extensions except one (keep MetaMask), then refresh the page.</p>';
         } else {
-            verificationStatus.className = 'verification-status error';
-            verificationStatus.innerHTML = `❌ ${error.message || 'Failed to connect wallet'}<br><small>If this persists, try refreshing the page or using a different browser.</small>`;
+            document.getElementById('verificationStatus').innerHTML = 
+                `<p class="error">❌ ${error.message || 'Connection failed'}</p>`;
         }
         
-        connectButton.disabled = false;
-        connectButton.textContent = 'CONNECT WALLET';
+        document.getElementById('connectButton').disabled = false;
+        document.getElementById('walletStatus').style.display = 'none';
     }
 }
 
-// Verify NFT Ownership
-async function verifyNFTOwnership() {
+// Load User's Rolls
+async function loadUserRolls() {
     try {
-        verificationStatus.className = 'verification-status checking';
-        verificationStatus.textContent = '🔍 Checking Winion ownership...';
+        // Get user's rolls from contract
+        const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
         
-        // DEVELOPMENT MODE BYPASS
-        if (DEVELOPMENT_MODE && SKIP_VERIFICATION) {
-            console.warn('⚠️ DEVELOPMENT MODE: Skipping NFT verification');
-            verificationStatus.className = 'verification-status success';
-            verificationStatus.innerHTML = `✅ [DEV MODE] Access granted without verification`;
-            setTimeout(() => {
-                grantAccess();
-            }, 1000);
-            return;
-        }
+        document.getElementById('freeRollsCount').textContent = freeRolls.toString();
+        document.getElementById('paidRollsCount').textContent = paidRolls.toString();
         
-        // Create contract instance
-        const contract = new ethers.Contract(WINIONS_CONTRACT, ERC721_ABI, provider);
+        // Get prices
+        const [single, three, five] = await distributionContract.getPrices();
+        document.getElementById('price1').textContent = `${ethers.formatEther(single)} ETH`;
+        document.getElementById('price3').textContent = `${ethers.formatEther(three)} ETH`;
+        document.getElementById('price5').textContent = `${ethers.formatEther(five)} ETH`;
         
-        // Check balance
-        const balance = await contract.balanceOf(userAddress);
-        const balanceNumber = Number(balance);
+        // Show rolls screen
+        document.getElementById('walletScreen').style.display = 'none';
+        document.getElementById('rollsScreen').style.display = 'block';
         
-        if (balanceNumber > 0) {
-            // Success! They own Winions
-            verificationStatus.className = 'verification-status success';
-            verificationStatus.innerHTML = `✅ Verified! You own ${balanceNumber} Winion${balanceNumber > 1 ? 's' : ''}.<br>Granting access...`;
-            
-            // Grant access after 2 seconds
-            setTimeout(() => {
-                grantAccess();
-            }, 2000);
-            
-        } else {
-            // No Winions found
-            verificationStatus.className = 'verification-status error';
-            verificationStatus.innerHTML = `❌ No Winions found in your wallet.<br><a href="${CONFIG.MINT_URL}" target="_blank" class="mint-link">Mint a Winion to access the dice roller</a>`;
-            connectButton.disabled = false;
-            connectButton.textContent = 'TRY AGAIN';
+        // Check if distribution is active
+        const isActive = await distributionContract.distributionActive();
+        if (!isActive) {
+            alert('⚠️ Distribution is not currently active. Please check back later!');
         }
         
     } catch (error) {
-        console.error('Verification error:', error);
-        verificationStatus.className = 'verification-status error';
-        verificationStatus.innerHTML = `❌ Error verifying ownership: ${error.message}<br>Please try again.`;
-        connectButton.disabled = false;
-        connectButton.textContent = 'TRY AGAIN';
+        console.error('Error loading rolls:', error);
+        alert('Error loading your rolls. Please refresh and try again.');
     }
 }
 
-// Grant Access to Dice Roller
-function grantAccess() {
-    walletGate.style.display = 'none';
-    schoolSelection.style.display = 'block';
-}
-
-// Listen for account changes
-if (typeof window.ethereum !== 'undefined') {
-    window.ethereum.on('accountsChanged', (accounts) => {
-        if (accounts.length === 0) {
-            // User disconnected wallet
-            location.reload();
+// Purchase Rolls
+async function purchaseRolls(numberOfRolls) {
+    try {
+        document.getElementById('verificationStatus').innerHTML = 
+            '<p class="info">⏳ Preparing transaction...</p>';
+        
+        // Get price from contract
+        const [single, three, five] = await distributionContract.getPrices();
+        let price;
+        
+        if (numberOfRolls === 1) price = single;
+        else if (numberOfRolls === 3) price = three;
+        else if (numberOfRolls === 5) price = five;
+        
+        // Send transaction
+        const tx = await distributionContract.purchaseRolls(numberOfRolls, {
+            value: price
+        });
+        
+        document.getElementById('verificationStatus').innerHTML = 
+            '<p class="info">⏳ Transaction sent! Waiting for confirmation...</p>';
+        
+        await tx.wait();
+        
+        document.getElementById('verificationStatus').innerHTML = 
+            '<p class="success">✅ Rolls purchased successfully!</p>';
+        
+        // Reload rolls
+        await loadUserRolls();
+        
+        setTimeout(() => {
+            document.getElementById('verificationStatus').innerHTML = '';
+        }, 3000);
+        
+    } catch (error) {
+        console.error('Purchase error:', error);
+        
+        if (error.code === 'ACTION_REJECTED') {
+            document.getElementById('verificationStatus').innerHTML = 
+                '<p class="error">❌ Transaction rejected</p>';
         } else {
-            // User switched accounts
-            location.reload();
+            document.getElementById('verificationStatus').innerHTML = 
+                `<p class="error">❌ ${error.message || 'Purchase failed'}</p>`;
         }
-    });
-    
-    window.ethereum.on('chainChanged', () => {
-        // User switched networks
-        location.reload();
-    });
+    }
 }
 
-// School Selection
-schoolButtons.forEach(button => {
-    button.addEventListener('click', () => {
-        selectedSchool = button.dataset.school;
-        
-        // Update the chosen school display
-        chosenSchoolSpan.textContent = selectedSchool.toUpperCase();
-        
-        // Transition to dice rolling screen
-        schoolSelection.style.display = 'none';
-        diceRolling.style.display = 'block';
-        
-        // Initialize dice
-        createDice();
-    });
-});
+// Show School Selection Screen
+function showSchoolScreen() {
+    document.getElementById('rollsScreen').style.display = 'none';
+    document.getElementById('schoolScreen').style.display = 'block';
+}
 
-// Create 66 dice
+// Select School
+function selectSchool(school) {
+    currentSchool = school;
+    document.getElementById('schoolScreen').style.display = 'none';
+    document.getElementById('diceScreen').style.display = 'block';
+    document.getElementById('chosenSchool').textContent = school.toUpperCase();
+    
+    // Set theme color based on school
+    const schoolColors = {
+        anarchy: '#ff6b35',
+        mischief: '#4a90e2',
+        luck: '#50c878'
+    };
+    
+    document.body.style.setProperty('--school-color', schoolColors[school] || '#ff1a1a');
+    
+    createDice();
+}
+
+// Create 66 Dice
 function createDice() {
+    const diceDisplay = document.getElementById('diceDisplay');
     diceDisplay.innerHTML = '';
+    
     for (let i = 0; i < 66; i++) {
         const die = document.createElement('div');
         die.className = 'die';
         die.textContent = '?';
+        die.id = `die-${i}`;
         diceDisplay.appendChild(die);
     }
 }
 
-// Roll all 66 dice
+// Roll Dice
 function rollDice() {
+    const rollButton = document.getElementById('rollButton');
     rollButton.disabled = true;
-    modal.classList.remove('show');
     
     const dice = document.querySelectorAll('.die');
     const rolls = [];
     
+    // Animate and roll each die
     dice.forEach((die, index) => {
         die.classList.add('rolling');
         
@@ -245,6 +221,7 @@ function rollDice() {
             die.textContent = roll;
             die.classList.remove('rolling');
             
+            // Calculate total after all dice are rolled
             if (index === 65) {
                 setTimeout(() => {
                     calculateTotal(rolls);
@@ -254,85 +231,152 @@ function rollDice() {
     });
 }
 
-// Calculate total and animate counter
+// Calculate Total
 function calculateTotal(rolls) {
     const total = rolls.reduce((sum, roll) => sum + roll, 0);
+    currentRollTotal = total;
     
-    let currentTotal = 0;
+    // Animate counting up
+    let currentCount = 0;
     const increment = Math.ceil(total / 50);
     const counter = setInterval(() => {
-        currentTotal += increment;
-        if (currentTotal >= total) {
-            currentTotal = total;
+        currentCount += increment;
+        if (currentCount >= total) {
+            currentCount = total;
             clearInterval(counter);
             setTimeout(() => {
                 revealHouse(total);
-            }, 800);
+            }, 500);
         }
-        totalValue.textContent = currentTotal;
+        document.getElementById('totalValue').textContent = currentCount;
     }, 20);
 }
 
-// Reveal which house based on total
+// Reveal House
 function revealHouse(total) {
-    for (const [name, data] of Object.entries(houseData)) {
-        if (total >= data.min && total <= data.max) {
-            // Check if image exists, otherwise show text placeholder
-            const img = new Image();
-            img.onload = function() {
-                housePlaceholder.innerHTML = `<img src="${data.image}" alt="${name}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 10px;">`;
-            };
-            img.onerror = function() {
-                housePlaceholder.textContent = data.image.split('.')[0].toUpperCase();
-            };
-            img.src = data.image;
-            
-            houseName.textContent = name;
-            houseRarity.textContent = data.rarity;
-            houseRarity.className = `rarity-badge ${data.class}`;
-            rollTotal.textContent = total;
-            
-            // Add school info to modal
-            const schoolInfo = document.createElement('p');
-            schoolInfo.style.cssText = 'margin-top: 10px; font-size: 16px; color: #999;';
-            schoolInfo.textContent = `School of ${selectedSchool.toUpperCase()}`;
-            
-            // Insert before rarity badge if not already there
-            if (!document.querySelector('.school-info')) {
-                schoolInfo.className = 'school-info';
-                houseRarity.parentElement.insertBefore(schoolInfo, houseRarity);
+    const houseName = getHouseFromRoll(total);
+    currentHouseName = houseName;
+    
+    document.getElementById('rolledHouseName').textContent = houseName;
+    document.getElementById('houseResult').style.display = 'block';
+    
+    document.getElementById('rollButton').disabled = false;
+}
+
+// Claim Winion
+async function claimWinion() {
+    try {
+        const claimButton = document.getElementById('claimButton');
+        claimButton.disabled = true;
+        claimButton.textContent = 'CLAIMING...';
+        
+        // Call contract
+        const tx = await distributionContract.claimWinion(
+            currentRollTotal,
+            currentHouseName
+        );
+        
+        claimButton.textContent = 'WAITING FOR CONFIRMATION...';
+        
+        const receipt = await tx.wait();
+        
+        // Find the NFTDistributed event
+        const event = receipt.logs.find(log => {
+            try {
+                const parsed = distributionContract.interface.parseLog(log);
+                return parsed.name === 'NFTDistributed';
+            } catch {
+                return false;
             }
-            
-            break;
+        });
+        
+        let tokenId = 'Unknown';
+        if (event) {
+            const parsed = distributionContract.interface.parseLog(event);
+            tokenId = parsed.args.tokenId.toString();
+        }
+        
+        // Show success modal
+        showSuccessModal(tokenId, tx.hash);
+        
+    } catch (error) {
+        console.error('Claim error:', error);
+        
+        const claimButton = document.getElementById('claimButton');
+        claimButton.disabled = false;
+        claimButton.textContent = 'CLAIM YOUR WINION';
+        
+        if (error.code === 'ACTION_REJECTED') {
+            alert('❌ Transaction rejected');
+        } else if (error.message.includes('No rolls available')) {
+            alert('❌ No rolls available. Please purchase rolls first.');
+        } else if (error.message.includes('No NFTs available')) {
+            alert('❌ No NFTs available for this house. Please try again or contact support.');
+        } else if (error.message.includes('Distribution is not active')) {
+            alert('❌ Distribution is not currently active.');
+        } else {
+            alert(`❌ ${error.message || 'Claim failed. Please try again.'}`);
         }
     }
-    
-    modal.classList.add('show');
-    rollButton.disabled = false;
 }
 
-// Reset game
-function resetGame() {
-    modal.classList.remove('show');
+// Show Success Modal
+function showSuccessModal(tokenId, txHash) {
+    document.getElementById('claimedHouseName').textContent = currentHouseName;
+    document.getElementById('claimedTokenId').textContent = tokenId;
+    document.getElementById('claimedRollTotal').textContent = currentRollTotal;
+    document.getElementById('etherscanLink').href = `${CONFIG.ETHERSCAN_URL}/tx/${txHash}`;
     
-    // Remove school info if it exists
-    const schoolInfo = document.querySelector('.school-info');
-    if (schoolInfo) schoolInfo.remove();
+    // Set house image if available
+    const houseImages = {
+        'House of Havoc': 'havoc.gif',
+        'House of Misfits': 'misfit.gif',
+        'House of Frog': 'frog.gif',
+        'House of Theory': 'theory.gif',
+        'House of Spectrum': 'spectrum.gif',
+        'House of Clay': 'clay.gif',
+        'House of Stencil': 'stencil.gif',
+        'House of Royal': 'royal.gif',
+        'House of Shadows': 'shadow.gif',
+        'House of Hellish': 'hellish.gif',
+        'House of Hologram': 'hologram.gif',
+        'House of Gold': 'gold.gif',
+        'House of Death': 'winionswhat.gif'
+    };
     
-    // Go back to school selection
-    diceRolling.style.display = 'none';
-    schoolSelection.style.display = 'block';
-    totalValue.textContent = '0';
-    selectedSchool = '';
+    const img = document.getElementById('claimedNFTImage');
+    img.src = houseImages[currentHouseName] || 'havoc.gif';
+    
+    document.getElementById('successModal').style.display = 'flex';
 }
 
-// Event Listeners
-if (rollButton) {
-    rollButton.addEventListener('click', rollDice);
-}
-if (closeButton) {
-    closeButton.addEventListener('click', resetGame);
+// Reset to Rolls Screen
+function resetToRollsScreen() {
+    document.getElementById('successModal').style.display = 'none';
+    document.getElementById('diceScreen').style.display = 'none';
+    document.getElementById('schoolScreen').style.display = 'none';
+    document.getElementById('houseResult').style.display = 'none';
+    document.getElementById('totalValue').textContent = '0';
+    
+    currentSchool = null;
+    currentRollTotal = 0;
+    currentHouseName = '';
+    
+    loadUserRolls();
 }
 
-// Initialize wallet on page load
-initWallet();
+// Handle account changes
+if (window.ethereum) {
+    window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length === 0) {
+            location.reload();
+        } else {
+            userAddress = accounts[0];
+            loadUserRolls();
+        }
+    });
+    
+    window.ethereum.on('chainChanged', () => {
+        location.reload();
+    });
+}
