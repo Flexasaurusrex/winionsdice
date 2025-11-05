@@ -1,64 +1,38 @@
-// Configuration for Winions Dice Roller
-// Updated with deployed contract addresses
+// Winions Distribution Configuration
 
 const CONFIG = {
-    // Distribution Contract address (deployed Nov 5, 2025)
-    DISTRIBUTION_CONTRACT: '0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7',
-    
-    // Original Winions NFT Contract
-    WINIONS_NFT_CONTRACT: '0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733',
+    // Contract Addresses
+    DISTRIBUTION_CONTRACT: "0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7",
+    WINIONS_NFT_CONTRACT: "0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733",
     
     // Network
     CHAIN_ID: 1, // Ethereum Mainnet
-    NETWORK_NAME: 'Ethereum Mainnet',
+    NETWORK_NAME: "Ethereum Mainnet",
     
-    // Roll Prices (in ETH)
-    PRICES: {
-        SINGLE_ROLL: '0.0111',
-        THREE_ROLL: '0.03',
-        FIVE_ROLL: '0.045'
-    },
-    
-    // House ranges for roll mapping
+    // House Mapping (roll total to house name)
     HOUSE_RANGES: {
-        'House of Havoc': { min: 66, max: 175 },
-        'House of Misfits': { min: 176, max: 230 },
-        'House of Frog': { min: 231, max: 263 },
-        'House of Theory': { min: 264, max: 290 },
-        'House of Spectrum': { min: 291, max: 312 },
-        'House of Clay': { min: 313, max: 329 },
-        'House of Stencil': { min: 330, max: 345 },
-        'House of Royal': { min: 346, max: 356 },
-        'House of Shadows': { min: 357, max: 367 },
-        'House of Hellish': { min: 368, max: 378 },
-        'House of Hologram': { min: 379, max: 389 },
-        'House of Gold': { min: 390, max: 394 },
-        'House of Death': { min: 395, max: 396 }
-    },
-    
-    // Development mode - SET TO FALSE FOR PRODUCTION
-    DEVELOPMENT_MODE: false,
-    
-    // If true, skips NFT verification (NEVER SET TRUE IN PRODUCTION!)
-    SKIP_VERIFICATION: false,
-    
-    // URLs
-    MINT_URL: 'https://www.transient.xyz/mint/winions-public',
-    MAIN_SITE_URL: 'https://winions.xyz',
-    ETHERSCAN_URL: 'https://etherscan.io'
+        "House of Havoc": [66, 175],
+        "House of Misfits": [176, 230],
+        "House of Frog": [231, 263],
+        "House of Theory": [264, 290],
+        "House of Spectrum": [291, 312],
+        "House of Clay": [313, 329],
+        "House of Stencil": [330, 345],
+        "House of Royal": [346, 356],
+        "House of Shadows": [357, 367],
+        "House of Hellish": [368, 378],
+        "House of Hologram": [379, 389],
+        "House of Gold": [390, 394],
+        "House of Death": [395, 396]
+    }
 };
 
-// Helper function to get house from roll total
+// Helper function to determine house from roll total
 function getHouseFromRoll(rollTotal) {
-    for (const [houseName, range] of Object.entries(CONFIG.HOUSE_RANGES)) {
-        if (rollTotal >= range.min && rollTotal <= range.max) {
-            return houseName;
+    for (const [house, [min, max]] of Object.entries(CONFIG.HOUSE_RANGES)) {
+        if (rollTotal >= min && rollTotal <= max) {
+            return house;
         }
     }
     return null;
-}
-
-// Export for use in other files
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { CONFIG, getHouseFromRoll };
 }
