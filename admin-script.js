@@ -604,6 +604,7 @@ async function batchTransferNFTs() {
         
         let successful = 0;
         let failed = 0;
+        const failedTokens = [];
         
         for (let i = 0; i < tokenIds.length; i++) {
             const tokenId = tokenIds[i];
@@ -611,14 +612,25 @@ async function batchTransferNFTs() {
             try {
                 statusDiv.innerHTML = `Transferring ${i + 1}/${tokenIds.length}: Token #${tokenId}...`;
                 
-                // Check ownership
-                const owner = await winionsNFTContract.ownerOf(tokenId);
-                if (owner.toLowerCase() !== adminAddress.toLowerCase()) {
-                    log(`⚠️ Skipping token #${tokenId} - you don't own it`, 'error');
+                // Check ownership FIRST - if this fails, skip immediately
+                let owner;
+                try {
+                    owner = await winionsNFTContract.ownerOf(tokenId);
+                } catch (ownerError) {
+                    log(`⚠️ Skipping token #${tokenId} - cannot verify ownership`, 'error');
                     failed++;
+                    failedTokens.push(tokenId);
                     continue;
                 }
                 
+                if (owner.toLowerCase() !== adminAddress.toLowerCase()) {
+                    log(`⚠️ Skipping token #${tokenId} - you don't own it (owner: ${owner.substring(0, 6)}...)`, 'error');
+                    failed++;
+                    failedTokens.push(tokenId);
+                    continue;
+                }
+                
+                // If we got here, we own it - try to transfer
                 const tx = await winionsNFTContract.transferFrom(
                     adminAddress,
                     CONFIG.DISTRIBUTION_CONTRACT,
@@ -637,6 +649,7 @@ async function batchTransferNFTs() {
                 console.error(`Error transferring token #${tokenId}:`, error);
                 log(`❌ Failed to transfer token #${tokenId}: ${error.message}`, 'error');
                 failed++;
+                failedTokens.push(tokenId);
             }
         }
         
@@ -644,12 +657,15 @@ async function batchTransferNFTs() {
             <strong>Transfer Complete!</strong><br>
             ✅ Successful: ${successful}<br>
             ${failed > 0 ? `❌ Failed: ${failed}<br>` : ''}
+            ${failedTokens.length > 0 ? `<br><strong>Failed tokens:</strong> ${failedTokens.join(', ')}` : ''}
         `;
         
-        log(`Batch transfer complete: ${successful} successful, ${failed} failed`, 'success');
+        log(`Batch transfer complete: ${successful} successful, ${failed} failed`, successful > 0 ? 'success' : 'error');
         
-        // Clear input
-        document.getElementById('batchTransferTokenIds').value = '';
+        // DON'T clear input if there were failures - user can retry
+        if (failedTokens.length === 0) {
+            document.getElementById('batchTransferTokenIds').value = '';
+        }
         
         await refreshStatus();
         
