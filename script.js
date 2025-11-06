@@ -6,6 +6,13 @@
 // ✅ Multi-wallet support
 // ✅ Mobile support
 
+console.log('🎲 Winions Dice Roller Script Loaded!');
+console.log('🔍 Checking dependencies...');
+console.log('  - ethers:', typeof ethers !== 'undefined' ? '✅' : '❌');
+console.log('  - CONFIG:', typeof CONFIG !== 'undefined' ? '✅' : '❌');
+console.log('  - CONTRACT_ABI:', typeof CONTRACT_ABI !== 'undefined' ? '✅' : '❌');
+console.log('  - DISTRIBUTION_CONTRACT_ABI:', typeof DISTRIBUTION_CONTRACT_ABI !== 'undefined' ? '✅' : '❌');
+
 let provider;
 let signer;
 let contract;
@@ -427,6 +434,8 @@ async function connectWallet() {
 
         // Check network
         const network = await provider.getNetwork();
+        console.log('✅ Network:', network.chainId, 'Expected:', CONFIG.CHAIN_ID);
+        
         if (network.chainId !== CONFIG.CHAIN_ID) {
             showToast('Switching to Ethereum Mainnet...', 'info');
             try {
@@ -434,18 +443,22 @@ async function connectWallet() {
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: '0x1' }],
                 });
+                console.log('✅ Network switched');
             } catch (error) {
+                console.log('❌ Network switch failed:', error);
                 showToast('Please switch to Ethereum Mainnet manually', 'error');
                 return;
             }
         }
 
         // Initialize contract
+        console.log('🔵 Initializing contract...');
         contract = new ethers.Contract(
             CONFIG.DISTRIBUTION_CONTRACT,
             DISTRIBUTION_CONTRACT_ABI,
             signer
         );
+        console.log('✅ Contract initialized');
 
         // Update UI
         document.getElementById('connectButton').style.display = 'none';
@@ -454,19 +467,27 @@ async function connectWallet() {
             `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
 
         showToast(`Connected with ${walletName}!`, 'success');
+        console.log('✅ UI updated');
 
         // Check rolls and available houses
+        console.log('🔵 Checking rolls...');
         await checkUserRolls();
+        console.log('🔵 Checking available houses...');
         await checkAvailableHouses();
+        
+        console.log('✅ Connection complete!');
 
     } catch (error) {
-        console.error('Connection error:', error);
+        console.error('❌ Connection error:', error);
+        console.error('❌ Error code:', error.code);
+        console.error('❌ Error message:', error.message);
+        
         if (error.code === 4001) {
             showToast('Connection rejected. Please try again.', 'warning');
         } else if (error.code === -32002) {
             showToast('Connection request pending. Please check your wallet.', 'warning');
         } else {
-            showToast('Failed to connect wallet', 'error');
+            showToast('Failed to connect wallet: ' + error.message, 'error');
         }
     }
 }
