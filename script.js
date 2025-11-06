@@ -872,24 +872,11 @@ async function showSuccessModal(tokenId, txHash) {
     document.getElementById('claimedRollTotal').textContent = currentRollTotal;
     document.getElementById('etherscanLink').href = `${CONFIG.ETHERSCAN_URL}/tx/${txHash}`;
     
-    const houseImages = {
-        'House of Havoc': 'havoc.gif',
-        'House of Misfits': 'misfit.gif',
-        'House of Frog': 'frog.gif',
-        'House of Theory': 'theory.gif',
-        'House of Spectrum': 'spectrum.gif',
-        'House of Clay': 'clay.gif',
-        'House of Stencil': 'stencil.gif',
-        'House of Royal': 'royal.gif',
-        'House of Shadows': 'shadow.gif',
-        'House of Hellish': 'hellish.gif',
-        'House of Hologram': 'hologram.gif',
-        'House of Gold': 'gold.gif',
-        'House of Death': 'winionswhat.gif'
-    };
-    
+    // Hide the NFT image for cleaner display
     const img = document.getElementById('claimedNFTImage');
-    img.src = houseImages[currentHouseName] || 'havoc.gif';
+    if (img) {
+        img.style.display = 'none';
+    }
     
     // Check remaining rolls after this claim
     try {
