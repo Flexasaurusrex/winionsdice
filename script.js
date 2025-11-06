@@ -319,13 +319,16 @@ function createDiceDisplay() {
                 color: #ff1a1a;
                 text-shadow: 0 0 30px rgba(255, 26, 26, 0.8),
                            0 0 60px rgba(255, 26, 26, 0.5);
-                margin: 60px auto;
+                margin: 0;
+                padding: 60px 0;
+                width: 100%;
                 min-height: 220px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 font-family: 'Arial Black', sans-serif;
                 letter-spacing: -5px;
+                text-align: center;
             }
             
             .spinning-number.rolling {
@@ -351,6 +354,7 @@ function createDiceDisplay() {
                 .spinning-number {
                     font-size: 120px;
                     min-height: 150px;
+                    padding: 40px 0;
                 }
             }
         `;
