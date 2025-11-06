@@ -245,6 +245,45 @@ async function loadUserRolls() {
             continueButton.style.cursor = 'pointer'; // Make it clickable!
             continueButton.style.animation = 'pulse 1.5s ease-in-out infinite';
             console.log('⚠️ User has pending claim - Continue button will restore claim screen');
+            
+            // Add emergency clear button if it doesn't exist
+            if (!document.getElementById('emergencyClearButton')) {
+                const emergencyButton = document.createElement('button');
+                emergencyButton.id = 'emergencyClearButton';
+                emergencyButton.textContent = '🆘 EMERGENCY: Clear Stuck Claim';
+                emergencyButton.className = 'emergency-clear-button';
+                emergencyButton.style.cssText = `
+                    margin-top: 20px;
+                    padding: 12px 30px;
+                    background: rgba(255, 100, 0, 0.3);
+                    border: 2px solid #ff6400;
+                    color: #ff6400;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    transition: all 0.3s ease;
+                `;
+                emergencyButton.onclick = () => {
+                    if (confirm('⚠️ EMERGENCY CLEAR\n\nThis will clear your pending claim if you\'re stuck.\n\nOnly use this if the house you rolled into has no NFTs left!\n\nAre you sure?')) {
+                        console.log('🆘 User activated emergency clear');
+                        clearPendingClaim();
+                        currentSchool = null;
+                        currentRollTotal = 0;
+                        currentHouseName = '';
+                        showToast('✅ Pending claim cleared! You can roll again.', 'success');
+                        loadUserRolls();
+                    }
+                };
+                emergencyButton.onmouseover = function() {
+                    this.style.background = 'rgba(255, 100, 0, 0.5)';
+                };
+                emergencyButton.onmouseout = function() {
+                    this.style.background = 'rgba(255, 100, 0, 0.3)';
+                };
+                
+                // Insert after continue button
+                continueButton.parentNode.insertBefore(emergencyButton, continueButton.nextSibling);
+            }
         } else {
             continueButton.textContent = 'CONTINUE TO ROLL →';
             continueButton.style.background = '';
@@ -252,6 +291,12 @@ async function loadUserRolls() {
             continueButton.style.cursor = 'pointer';
             continueButton.style.animation = '';
             console.log('✅ No pending claim - Continue button unlocked');
+            
+            // Remove emergency button if it exists
+            const emergencyButton = document.getElementById('emergencyClearButton');
+            if (emergencyButton) {
+                emergencyButton.remove();
+            }
         }
         
         console.log(`Loaded rolls: ${freeRolls} free, ${paidRolls} paid`);
@@ -343,6 +388,34 @@ async function handleContinueToSchool() {
 async function restorePendingClaimScreen() {
     console.log('🔄 Restoring pending claim screen...');
     
+    // CRITICAL: Check if house still has NFTs before restoring!
+    console.log('Checking if house still has NFTs available...');
+    await checkAvailableHouses();
+    
+    // ESCAPE HATCH: If house has no NFTs, clear the pending claim
+    if (!availableHouses[currentHouseName] || availableHouses[currentHouseName].count === 0) {
+        console.error('⚠️ ESCAPE HATCH ACTIVATED!');
+        console.error(`House "${currentHouseName}" has no NFTs left!`);
+        console.error('Clearing pending claim to prevent user from being stuck...');
+        
+        clearPendingClaim();
+        
+        showToast('⚠️ The house you rolled into has no NFTs left!', 'error');
+        showToast('Your pending claim has been cleared. You can roll again!', 'warning');
+        
+        // Reset everything
+        currentSchool = null;
+        currentRollTotal = 0;
+        currentHouseName = '';
+        
+        // Stay on rolls screen, reload counts
+        await loadUserRolls();
+        return;
+    }
+    
+    // House has NFTs - proceed with restore
+    console.log(`✅ House "${currentHouseName}" has ${availableHouses[currentHouseName].count} NFTs - restoring claim screen`);
+    
     // Hide rolls screen
     document.getElementById('rollsScreen').style.display = 'none';
     
@@ -373,28 +446,22 @@ async function restorePendingClaimScreen() {
     document.getElementById('rollButton').disabled = true;
     document.getElementById('rollButton').textContent = '⚠️ CLAIM YOUR WINION FIRST';
     
-    // Re-fetch house inventory to ensure we have current data
-    console.log('Checking available houses...');
-    await checkAvailableHouses();
-    
     // Show the house result with claim button
     document.getElementById('rolledHouseName').textContent = currentHouseName;
     document.getElementById('houseResult').style.display = 'block';
     
     // Show remaining NFTs in house
-    if (availableHouses[currentHouseName]) {
-        const remaining = availableHouses[currentHouseName].count;
-        const countDisplay = document.createElement('p');
-        countDisplay.style.color = '#00ff00';
-        countDisplay.style.marginTop = '10px';
-        countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining in this house`;
-        countDisplay.className = 'nft-count';
-        
-        const houseResult = document.getElementById('houseResult');
-        const existingCount = houseResult.querySelector('.nft-count');
-        if (existingCount) existingCount.remove();
-        houseResult.appendChild(countDisplay);
-    }
+    const remaining = availableHouses[currentHouseName].count;
+    const countDisplay = document.createElement('p');
+    countDisplay.style.color = '#00ff00';
+    countDisplay.style.marginTop = '10px';
+    countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining in this house`;
+    countDisplay.className = 'nft-count';
+    
+    const houseResult = document.getElementById('houseResult');
+    const existingCount = houseResult.querySelector('.nft-count');
+    if (existingCount) existingCount.remove();
+    houseResult.appendChild(countDisplay);
     
     // Show warning message
     const warningMsg = document.createElement('p');
@@ -405,7 +472,6 @@ async function restorePendingClaimScreen() {
     warningMsg.style.animation = 'pulse 1.5s ease-in-out infinite';
     warningMsg.textContent = '⚠️ Complete your claim from before you refreshed!';
     
-    const houseResult = document.getElementById('houseResult');
     const existingWarning = houseResult.querySelector('.claim-warning');
     if (existingWarning) existingWarning.remove();
     houseResult.appendChild(warningMsg);
@@ -790,9 +856,25 @@ async function claimWinion() {
             showToast('Transaction rejected', 'error');
         } else if (error.message.includes('No rolls available')) {
             showToast('❌ No rolls available. Please purchase rolls first.', 'error');
+            // ESCAPE HATCH: Clear pending claim if no rolls
+            clearPendingClaim();
             setTimeout(() => resetToRollsScreen(), 2000);
         } else if (error.message.includes('No NFTs available')) {
-            showToast('❌ No NFTs available for this house.', 'error');
+            // CRITICAL ESCAPE HATCH: House ran out of NFTs!
+            console.error('🚨 ESCAPE HATCH: House has no NFTs!');
+            showToast('❌ This house has no NFTs left!', 'error');
+            showToast('Clearing your pending claim so you can roll again...', 'warning');
+            
+            // Clear the pending claim to free the user
+            clearPendingClaim();
+            
+            // Reset state
+            currentSchool = null;
+            currentRollTotal = 0;
+            currentHouseName = '';
+            
+            // Go back to rolls screen after 2 seconds
+            setTimeout(() => resetToRollsScreen(), 2000);
         } else if (error.message.includes('Distribution is not active')) {
             showToast('❌ Distribution is not currently active.', 'error');
         } else {
