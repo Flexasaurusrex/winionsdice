@@ -4,155 +4,313 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Winions Dice Roller</title>
-    <link rel="stylesheet" href="styles.css">
     
-    <!-- Ethers.js v5 (FIXED) -->
+    <!-- CRITICAL: Load in this exact order -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    
-    <!-- Configuration -->
     <script src="config.js"></script>
-    
-    <!-- Contract ABI -->
     <script src="contract-abi.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #000;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 2px solid #ff0000;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 48px;
+            color: #ff0000;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: #888;
+        }
+
+        /* Wallet Connection */
+        #walletSection {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        #connectButton {
+            background: #ff0000;
+            border: none;
+            padding: 16px 48px;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+
+        #connectButton:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+        }
+
+        #walletInfo {
+            display: none;
+            font-size: 18px;
+        }
+
+        .wallet-address {
+            color: #ff0000;
+            font-weight: bold;
+        }
+
+        .roll-count {
+            margin-top: 20px;
+            font-size: 24px;
+        }
+
+        .roll-count span {
+            color: #ff0000;
+            font-weight: bold;
+            font-size: 32px;
+        }
+
+        /* Purchase Section */
+        #purchaseSection {
+            display: none;
+            background: #1a1a1a;
+            border: 2px solid #ff0000;
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 32px;
+            color: #ff0000;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .purchase-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .purchase-card {
+            background: #000;
+            border: 2px solid #ff0000;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .purchase-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+        }
+
+        .purchase-card h3 {
+            font-size: 28px;
+            color: #ff0000;
+            margin-bottom: 12px;
+        }
+
+        .purchase-card .price {
+            font-size: 24px;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .purchase-card .discount {
+            font-size: 14px;
+            color: #00ff00;
+        }
+
+        .continue-button {
+            background: #ff0000;
+            border: none;
+            padding: 16px 48px;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .continue-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+        }
+
+        /* Roll Section */
+        #rollSection {
+            display: none;
+            background: #1a1a1a;
+            border: 2px solid #ff0000;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        #diceContainer {
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 40px 0;
+        }
+
+        #rollButton {
+            background: #ff0000;
+            border: none;
+            padding: 20px 60px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+        }
+
+        #rollButton:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+        }
+
+        /* Roll Result */
+        #rollResult {
+            display: none;
+            background: #000;
+            border: 2px solid #00ff00;
+            border-radius: 12px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+
+        #rollResultText {
+            font-size: 24px;
+            color: #00ff00;
+            margin-bottom: 20px;
+        }
+
+        #claimButton {
+            background: #00ff00;
+            border: none;
+            padding: 16px 48px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #000;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        #claimButton:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 32px;
+            }
+
+            .purchase-options {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-    <!-- Wallet Connection Screen -->
-    <div class="container" id="walletScreen">
-        <h1>WINIONS DICE ROLLER</h1>
-        <p class="subtitle">Connect your wallet to begin</p>
-        
-        <div class="gate-content">
-            <img src="havoc.gif" alt="Winion" class="gate-winion-gif" onerror="this.style.display='none'">
-            
-            <p class="gate-description">
-                Connect your wallet to check your rolls and start rolling for Winions.
-            </p>
-            
-            <div id="walletStatus" class="wallet-status" style="display: none;"></div>
-            
-            <button class="connect-button" id="connectButton">
-                CONNECT WALLET
-            </button>
-            
-            <div id="verificationStatus" class="verification-status"></div>
-        </div>
-    </div>
+    <div class="container">
+        <header>
+            <h1>🎲 WINIONS DICE ROLLER 🎲</h1>
+            <p class="subtitle">Roll 66d6 to claim your Winion NFT!</p>
+        </header>
 
-    <!-- Rolls Status Screen -->
-    <div class="container" id="rollsScreen" style="display: none;">
-        <h1>YOUR ROLLS</h1>
-        <p class="subtitle">Check your available rolls</p>
-        
-        <div class="rolls-display">
-            <div class="roll-type">
-                <h3>🎁 FREE ROLLS</h3>
-                <div class="roll-count" id="freeRollsCount">0</div>
-                <p>Whitelist rolls</p>
+        <!-- Wallet Connection -->
+        <section id="walletSection">
+            <button id="connectButton" onclick="connectWallet()">CONNECT WALLET</button>
+            <div id="walletInfo">
+                <p>Connected: <span class="wallet-address" id="userAddress"></span></p>
+                <p class="roll-count">Available Rolls: <span id="rollCount">0</span></p>
             </div>
+        </section>
+
+        <!-- Purchase Section -->
+        <section id="purchaseSection">
+            <h2 class="section-title">Purchase Rolls</h2>
             
-            <div class="roll-type">
-                <h3>💎 PURCHASED ROLLS</h3>
-                <div class="roll-count" id="paidRollsCount">0</div>
-                <p>Owned rolls</p>
-            </div>
-        </div>
-        
-        <div class="purchase-section">
-            <h3>PURCHASE MORE ROLLS</h3>
             <div class="purchase-options">
-                <button class="purchase-button" onclick="purchaseRolls(1)">
-                    <span class="package">1 ROLL</span>
-                    <span class="price" id="price1">0.0111 ETH</span>
-                </button>
-                <button class="purchase-button popular" onclick="purchaseRolls(3)">
-                    <span class="badge">POPULAR</span>
-                    <span class="package">3 ROLLS</span>
-                    <span class="price" id="price3">0.03 ETH</span>
-                    <span class="savings">SAVE 10%</span>
-                </button>
-                <button class="purchase-button" onclick="purchaseRolls(5)">
-                    <span class="package">5 ROLLS</span>
-                    <span class="price" id="price5">0.045 ETH</span>
-                    <span class="savings">SAVE 19%</span>
-                </button>
+                <div class="purchase-card" onclick="purchaseRolls(1)">
+                    <h3>1 Roll</h3>
+                    <p class="price">0.0111 ETH</p>
+                </div>
+                
+                <div class="purchase-card" onclick="purchaseRolls(3)">
+                    <h3>3 Rolls</h3>
+                    <p class="price">0.03 ETH</p>
+                    <p class="discount">10% Discount!</p>
+                </div>
+                
+                <div class="purchase-card" onclick="purchaseRolls(5)">
+                    <h3>5 Rolls</h3>
+                    <p class="price">0.045 ETH</p>
+                    <p class="discount">19% Discount!</p>
+                </div>
             </div>
-        </div>
-        
-        <button class="action-button" id="continueToSchool">
-            CONTINUE TO ROLL →
-        </button>
+
+            <button class="continue-button" onclick="continueToRoll()">CONTINUE TO ROLL</button>
+        </section>
+
+        <!-- Roll Section -->
+        <section id="rollSection">
+            <h2 class="section-title">Roll Your Dice!</h2>
+            
+            <div id="diceContainer">
+                <p style="color: #888;">Click "ROLL DICE" to start!</p>
+            </div>
+
+            <button id="rollButton" onclick="rollDice()">ROLL DICE</button>
+
+            <!-- Roll Result -->
+            <div id="rollResult">
+                <p id="rollResultText"></p>
+                <button id="claimButton" onclick="claimWinion()">CLAIM WINION</button>
+            </div>
+        </section>
     </div>
 
-    <!-- School Selection Screen -->
-    <div class="container" id="schoolScreen" style="display: none;">
-        <h1>ROLL TO MINT NEW WINION</h1>
-        <p class="subtitle">Roll one of the D66 dice below</p>
-        
-        <p class="description">
-            the winions value three different schools of mayhem which determine the life schemes of each winion. almost like choosing a religion. decide for this winion you are summoning to which school they will belong. choose wisely.
-        </p>
-
-        <div class="dice-row">
-            <img src="ORANGEDIE.png" alt="Anarchy Dice" class="dice-image">
-            <img src="BLUEDIE.png" alt="Mischief Dice" class="dice-image">
-            <img src="GREENDIE.png" alt="Luck Dice" class="dice-image">
-        </div>
-
-        <div class="button-row">
-            <button class="school-button" data-school="anarchy">
-                <img src="ANARCHY.png" alt="Anarchy Icon" class="button-icon">
-                <span>ANARCHY</span>
-            </button>
-            <button class="school-button" data-school="mischief">
-                <img src="MISCHIEF.png" alt="Mischief Icon" class="button-icon">
-                <span>MISCHIEF</span>
-            </button>
-            <button class="school-button" data-school="luck">
-                <img src="LUCK.png" alt="Luck Icon" class="button-icon">
-                <span>LUCK</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Dice Rolling Screen -->
-    <div class="container" id="diceScreen" style="display: none;">
-        <h1>ROLL FOR YOUR HOUSE</h1>
-        <p class="subtitle school-chosen">School of <span id="chosenSchool"></span></p>
-
-        <div class="dice-display" id="diceDisplay"></div>
-
-        <div class="controls">
-            <button class="roll-button" id="rollButton">🎲 ROLL THE DICE 🎲</button>
-        </div>
-
-        <div class="dice-total">
-            <span class="total-label">YOUR TOTAL</span>
-            <span class="total-value" id="totalValue">0</span>
-            <span class="total-range">Range: 66-396</span>
-        </div>
-        
-        <div id="houseResult" class="house-result-display" style="display: none;">
-            <h3>YOU ROLLED INTO:</h3>
-            <div class="house-name-large" id="rolledHouseName"></div>
-            <button class="claim-button" id="claimButton">CLAIM YOUR WINION</button>
-        </div>
-    </div>
-
-    <!-- Success Modal -->
-    <div class="modal" id="successModal" style="display: none;">
-        <div class="modal-content">
-            <h2>🎉 WINION CLAIMED! 🎉</h2>
-            <img id="claimedNFTImage" src="" alt="Your Winion" class="claimed-nft-image">
-            <h3 id="claimedHouseName"></h3>
-            <p class="claimed-details">
-                Token ID: <strong id="claimedTokenId"></strong><br>
-                Roll Total: <strong id="claimedRollTotal"></strong>
-            </p>
-            <a id="etherscanLink" href="" target="_blank" class="etherscan-link">View on Etherscan →</a>
-            <button class="close-button" onclick="resetToRollsScreen()">ROLL AGAIN</button>
-        </div>
-    </div>
-
-    <script src="script.js"></script>
+    <!-- Load the main script LAST -->
+    <script src="dice-script-FINAL-SEAMLESS.js"></script>
 </body>
 </html>
