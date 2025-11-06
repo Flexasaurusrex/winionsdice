@@ -11,6 +11,9 @@ let currentHouseName = '';
 let availableHouses = {};
 let hasPendingClaim = false; // Track if user has unclaimed roll
 
+// LOCALSTORAGE VERSION - Increment this to clear old data
+const LOCALSTORAGE_VERSION = 2; // Incremented to clear old pending claims
+
 const HOUSE_RANGES = {
     'House of Havoc': { min: 66, max: 99 },
     'House of Misfits': { min: 100, max: 132 },
@@ -27,9 +30,34 @@ const HOUSE_RANGES = {
     'House of Death': { min: 396, max: 396 }
 };
 
+// CRITICAL: Check localStorage version and clear old data if needed
+function checkLocalStorageVersion() {
+    const storedVersion = localStorage.getItem('winions_version');
+    
+    if (!storedVersion || parseInt(storedVersion) < LOCALSTORAGE_VERSION) {
+        console.log('🔄 OLD LOCALSTORAGE DETECTED - Clearing all data...');
+        console.log(`Stored version: ${storedVersion || 'none'}, Current version: ${LOCALSTORAGE_VERSION}`);
+        
+        // Clear all Winions-related localStorage
+        localStorage.removeItem('winions_pending_claim');
+        localStorage.removeItem('winions_version');
+        
+        // Set new version
+        localStorage.setItem('winions_version', LOCALSTORAGE_VERSION.toString());
+        
+        console.log('✅ localStorage cleared and updated to new version');
+        showToast('🔄 App updated! Old data cleared for fresh start.', 'info');
+    } else {
+        console.log(`✅ localStorage version ${LOCALSTORAGE_VERSION} - up to date`);
+    }
+}
+
 // CRITICAL: Check for pending claim on page load (ANTI-REFRESH PROTECTION)
 window.addEventListener('load', async () => {
-    // Check if user has a pending claim from before refresh
+    // FIRST: Check and update localStorage version
+    checkLocalStorageVersion();
+    
+    // THEN: Check if user has a pending claim from before refresh
     checkForPendingClaim();
     
     document.getElementById('connectButton').addEventListener('click', connectWallet);
@@ -1287,4 +1315,33 @@ window.testHouseInventory = async function(houseName) {
     }
 };
 
-console.log('💡 DEBUG: Use testHouseInventory("House of Havoc") in console to test manually');
+// DEBUG: Manual reset function to clear ALL localStorage
+window.resetWinionsApp = function() {
+    console.log('🔄 MANUAL RESET INITIATED');
+    
+    // Clear all Winions localStorage
+    localStorage.removeItem('winions_pending_claim');
+    localStorage.removeItem('winions_version');
+    
+    // Reset in-memory state
+    hasPendingClaim = false;
+    currentSchool = null;
+    currentRollTotal = 0;
+    currentHouseName = '';
+    availableHouses = {};
+    
+    console.log('✅ All data cleared!');
+    console.log('✅ In-memory state reset!');
+    console.log('🔄 Reloading page...');
+    
+    // Reload page for fresh start
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+    
+    return 'Resetting...';
+};
+
+console.log('💡 DEBUG FUNCTIONS:');
+console.log('  - testHouseInventory("House of Havoc") - Test house inventory');
+console.log('  - resetWinionsApp() - Clear ALL data and reload');
