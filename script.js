@@ -318,29 +318,49 @@ async function checkAvailableHouses() {
     try {
         availableHouses = {};
         
+        console.log('🔍 Checking all 13 houses for NFTs...');
+        console.log('Contract address:', CONFIG.DISTRIBUTION_CONTRACT);
+        
         for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
             try {
+                console.log(`Checking ${houseName}...`);
+                
                 const count = await distributionContract.getHouseInventoryCount(houseName);
+                console.log(`Raw response for ${houseName}:`, count);
+                
                 const countNum = Number(count.toString());
+                console.log(`${houseName}: ${countNum} NFTs`);
                 
                 if (countNum > 0) {
                     availableHouses[houseName] = {
                         count: countNum,
                         range: range
                     };
+                    console.log(`✅ ${houseName}: ${countNum} NFTs available`);
+                } else {
+                    console.log(`❌ ${houseName}: 0 NFTs`);
                 }
             } catch (error) {
-                console.error(`Error checking ${houseName}:`, error);
+                console.error(`❌ ERROR checking ${houseName}:`, error.message);
+                console.error('Full error:', error);
             }
         }
         
+        console.log('=== FINAL RESULTS ===');
+        console.log('Available houses:', Object.keys(availableHouses));
+        console.log('Total houses with NFTs:', Object.keys(availableHouses).length);
+        console.log('Full availableHouses object:', availableHouses);
+        
         if (Object.keys(availableHouses).length === 0) {
+            console.error('⚠️ NO HOUSES HAVE NFTS!');
             showToast('⚠️ No NFTs available in any house! Please contact admin.', 'error');
             document.getElementById('rollButton').disabled = true;
         }
         
     } catch (error) {
-        console.error('Error checking houses:', error);
+        console.error('❌ CRITICAL ERROR in checkAvailableHouses:', error);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
     }
 }
 
@@ -954,3 +974,32 @@ if (window.ethereum) {
         location.reload();
     });
 }
+
+// DEBUG: Test function to manually check contract
+window.testHouseInventory = async function(houseName) {
+    if (!distributionContract) {
+        console.error('Contract not initialized! Connect wallet first.');
+        return;
+    }
+    
+    try {
+        console.log(`Testing ${houseName}...`);
+        const count = await distributionContract.getHouseInventoryCount(houseName);
+        console.log('Raw count:', count);
+        console.log('As number:', Number(count.toString()));
+        
+        const inventory = await distributionContract.getHouseInventory(houseName);
+        console.log('Full inventory:', inventory);
+        console.log('Token IDs:', inventory.map(id => id.toString()));
+        
+        return {
+            count: Number(count.toString()),
+            tokenIds: inventory.map(id => id.toString())
+        };
+    } catch (error) {
+        console.error('Test failed:', error);
+        return null;
+    }
+};
+
+console.log('💡 DEBUG: Use testHouseInventory("House of Havoc") in console to test manually');
