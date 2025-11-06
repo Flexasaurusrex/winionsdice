@@ -171,6 +171,20 @@ async function loadUserRolls() {
         document.getElementById('walletScreen').style.display = 'none';
         document.getElementById('rollsScreen').style.display = 'block';
         
+        // Update Continue button based on pending claim status
+        const continueButton = document.getElementById('continueToSchool');
+        if (hasPendingClaim) {
+            continueButton.textContent = '🚫 CLAIM YOUR WINION FIRST';
+            continueButton.style.background = 'rgba(255, 0, 0, 0.3)';
+            continueButton.style.borderColor = '#ff0000';
+            continueButton.style.cursor = 'not-allowed';
+        } else {
+            continueButton.textContent = 'CONTINUE TO ROLL →';
+            continueButton.style.background = '';
+            continueButton.style.borderColor = '';
+            continueButton.style.cursor = 'pointer';
+        }
+        
         const isActive = await distributionContract.distributionActive();
         if (!isActive) {
             showToast('⚠️ Distribution is not currently active. Please check back later!', 'warning');
@@ -217,6 +231,13 @@ async function purchaseRolls(numberOfRolls) {
 }
 
 async function handleContinueToSchool() {
+    // CRITICAL: Block if there's an unclaimed Winion
+    if (hasPendingClaim) {
+        showToast('⚠️ YOU CANNOT ROLL AGAIN UNTIL YOU CLAIM YOUR PREVIOUS WINION!', 'error');
+        showToast('Go back and click "CLAIM YOUR WINION" to continue.', 'warning');
+        return; // HARD BLOCK - Cannot proceed
+    }
+    
     // Check if user has rolls BEFORE allowing them to continue
     try {
         const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
@@ -228,13 +249,6 @@ async function handleContinueToSchool() {
             const purchaseSection = document.querySelector('.purchase-section');
             purchaseSection.style.animation = 'pulse 1s ease-in-out 3';
             return;
-        }
-        
-        // If they have a pending unclaimed roll, warn them
-        if (hasPendingClaim) {
-            if (!confirm('⚠️ You have an unclaimed Winion! Are you sure you want to roll again? You must claim your current roll first.')) {
-                return;
-            }
         }
         
         showSchoolScreen();
@@ -251,6 +265,13 @@ function showSchoolScreen() {
 }
 
 async function selectSchool(school) {
+    // CRITICAL: Block if there's an unclaimed Winion
+    if (hasPendingClaim) {
+        showToast('⚠️ YOU CANNOT ROLL AGAIN UNTIL YOU CLAIM YOUR PREVIOUS WINION!', 'error');
+        showToast('Complete your current claim first!', 'warning');
+        return; // HARD BLOCK
+    }
+    
     currentSchool = school;
     document.getElementById('schoolScreen').style.display = 'none';
     document.getElementById('diceScreen').style.display = 'block';
@@ -313,22 +334,31 @@ function createDiceDisplay() {
         const style = document.createElement('style');
         style.id = 'spinningNumberStyles';
         style.textContent = `
-            .spinning-number {
-                font-size: 180px;
-                font-weight: 900;
-                color: #ff1a1a;
-                text-shadow: 0 0 30px rgba(255, 26, 26, 0.8),
-                           0 0 60px rgba(255, 26, 26, 0.5);
-                margin: 0;
-                padding: 60px 0;
+            .dice-display {
+                position: relative;
                 width: 100%;
-                min-height: 220px;
+                min-height: 300px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+            }
+            
+            .spinning-number {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 180px;
+                font-weight: 900;
+                color: #ff1a1a;
+                text-shadow: 0 0 40px rgba(255, 26, 26, 1),
+                           0 0 80px rgba(255, 26, 26, 0.8),
+                           0 0 120px rgba(255, 26, 26, 0.6);
                 font-family: 'Arial Black', sans-serif;
                 letter-spacing: -5px;
-                text-align: center;
+                margin: 0;
+                padding: 0;
+                line-height: 1;
             }
             
             .spinning-number.rolling {
@@ -340,21 +370,35 @@ function createDiceDisplay() {
             }
             
             @keyframes spin3d {
-                0% { transform: rotateX(0deg) scale(1); }
-                100% { transform: rotateX(360deg) scale(1.1); }
+                0% { 
+                    transform: translate(-50%, -50%) rotateX(0deg) scale(1);
+                }
+                100% { 
+                    transform: translate(-50%, -50%) rotateX(360deg) scale(1.1);
+                }
             }
             
             @keyframes zoomLand {
-                0% { transform: scale(1.3) rotateX(0deg); }
-                50% { transform: scale(0.9); }
-                100% { transform: scale(1); }
+                0% { 
+                    transform: translate(-50%, -50%) scale(1.3) rotateX(0deg);
+                    text-shadow: 0 0 60px rgba(255, 26, 26, 1),
+                               0 0 120px rgba(255, 26, 26, 0.9),
+                               0 0 180px rgba(255, 26, 26, 0.7);
+                }
+                50% { 
+                    transform: translate(-50%, -50%) scale(0.9);
+                }
+                100% { 
+                    transform: translate(-50%, -50%) scale(1);
+                    text-shadow: 0 0 40px rgba(255, 26, 26, 1),
+                               0 0 80px rgba(255, 26, 26, 0.8),
+                               0 0 120px rgba(255, 26, 26, 0.6);
+                }
             }
             
             @media (max-width: 768px) {
                 .spinning-number {
                     font-size: 120px;
-                    min-height: 150px;
-                    padding: 40px 0;
                 }
             }
         `;
@@ -377,6 +421,14 @@ function generateSmartDiceRolls() {
 }
 
 async function rollDice() {
+    // TRIPLE CHECK: Block if there's an unclaimed Winion
+    if (hasPendingClaim) {
+        showToast('⚠️ YOU CANNOT ROLL AGAIN! CLAIM YOUR PREVIOUS WINION FIRST!', 'error');
+        document.getElementById('rollButton').disabled = true;
+        document.getElementById('rollButton').textContent = '🚫 CLAIM YOUR WINION FIRST';
+        return; // ABSOLUTE HARD BLOCK
+    }
+    
     // CHECK ROLLS AGAIN before rolling
     try {
         const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
@@ -643,6 +695,12 @@ async function showSuccessModal(tokenId, txHash) {
 }
 
 function resetForNextRoll() {
+    // Safety check - should only be called after successful claim
+    if (hasPendingClaim) {
+        showToast('⚠️ You must claim your Winion first!', 'error');
+        return;
+    }
+    
     // Reset for next roll WITHOUT going back to rolls screen
     document.getElementById('diceScreen').style.display = 'none';
     document.getElementById('schoolScreen').style.display = 'block';
@@ -658,10 +716,14 @@ function resetForNextRoll() {
     currentSchool = null;
     currentRollTotal = 0;
     currentHouseName = '';
-    hasPendingClaim = false;
 }
 
 function resetToRollsScreen() {
+    // If there's a pending claim, warn user but allow reset (they might need to buy rolls)
+    if (hasPendingClaim) {
+        showToast('⚠️ Warning: You have an unclaimed Winion! Claim it before rolling again.', 'warning');
+    }
+    
     document.getElementById('successModal').style.display = 'none';
     document.getElementById('diceScreen').style.display = 'none';
     document.getElementById('schoolScreen').style.display = 'none';
@@ -677,7 +739,7 @@ function resetToRollsScreen() {
     currentSchool = null;
     currentRollTotal = 0;
     currentHouseName = '';
-    hasPendingClaim = false;
+    // Don't clear hasPendingClaim - keep the lock in place
     
     loadUserRolls();
 }
