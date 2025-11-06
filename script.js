@@ -293,12 +293,25 @@ async function selectSchool(school) {
     
     document.body.style.setProperty('--school-color', schoolColors[school] || '#ff1a1a');
     
-    await checkAvailableHouses();
+    // Only check houses if we haven't already (or if cache is empty)
+    if (Object.keys(availableHouses).length === 0) {
+        console.log('Available houses cache empty, checking blockchain...');
+        await checkAvailableHouses();
+    } else {
+        console.log(`Using cached houses: ${Object.keys(availableHouses).length} houses available`);
+    }
     
     createDiceDisplay();
     
-    document.getElementById('rollButton').disabled = false;
-    document.getElementById('rollButton').textContent = '🎲 ROLL THE DICE 🎲';
+    // Final validation before enabling roll
+    if (Object.keys(availableHouses).length === 0) {
+        document.getElementById('rollButton').disabled = true;
+        document.getElementById('rollButton').textContent = '❌ NO NFTS AVAILABLE';
+        showToast('⚠️ No NFTs available! Please contact admin.', 'error');
+    } else {
+        document.getElementById('rollButton').disabled = false;
+        document.getElementById('rollButton').textContent = '🎲 ROLL THE DICE 🎲';
+    }
 }
 
 async function checkAvailableHouses() {
@@ -652,11 +665,47 @@ async function showSuccessModal(tokenId, txHash) {
             closeButton.textContent = `🎲 ROLL AGAIN (${totalRolls} roll${totalRolls > 1 ? 's' : ''} remaining)`;
             closeButton.style.background = 'linear-gradient(135deg, #50c878 0%, #2d7a4a 100%)';
             closeButton.style.borderColor = '#50c878';
-            closeButton.onclick = () => {
+            closeButton.onclick = async () => {
                 console.log('User wants to roll again!');
                 document.getElementById('successModal').style.display = 'none';
+                
                 // Clear the pending claim flag since they claimed
                 hasPendingClaim = false;
+                
+                // Reset state for next roll
+                currentSchool = null;
+                currentRollTotal = 0;
+                currentHouseName = '';
+                
+                // CRITICAL: Refresh available houses from blockchain before next roll
+                console.log('Refreshing available houses from contract...');
+                availableHouses = {}; // Clear old cache
+                
+                try {
+                    for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
+                        const count = await distributionContract.getHouseInventoryCount(houseName);
+                        const countNum = Number(count.toString());
+                        if (countNum > 0) {
+                            availableHouses[houseName] = {
+                                count: countNum,
+                                range: range
+                            };
+                            console.log(`✅ ${houseName}: ${countNum} NFTs available`);
+                        }
+                    }
+                    console.log(`Total houses with NFTs: ${Object.keys(availableHouses).length}`);
+                } catch (error) {
+                    console.error('Error refreshing houses:', error);
+                    showToast('Error loading NFT inventory. Please try again.', 'error');
+                    return;
+                }
+                
+                // Check if any houses have NFTs
+                if (Object.keys(availableHouses).length === 0) {
+                    showToast('⚠️ No NFTs available in any house! Please contact admin.', 'error');
+                    return;
+                }
+                
                 // Go straight to school selection for next roll
                 document.getElementById('diceScreen').style.display = 'none';
                 document.getElementById('schoolScreen').style.display = 'block';
@@ -668,10 +717,6 @@ async function showSuccessModal(tokenId, txHash) {
                     spinningNumber.textContent = '0';
                     spinningNumber.classList.remove('rolling', 'landing');
                 }
-                
-                currentSchool = null;
-                currentRollTotal = 0;
-                currentHouseName = '';
                 
                 showToast(`✅ ${totalRolls} roll${totalRolls > 1 ? 's' : ''} remaining! Pick your school.`, 'success');
             };
