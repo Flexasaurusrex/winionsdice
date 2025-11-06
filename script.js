@@ -27,7 +27,11 @@ const HOUSE_RANGES = {
     'House of Death': { min: 396, max: 396 }
 };
 
+// CRITICAL: Check for pending claim on page load (ANTI-REFRESH PROTECTION)
 window.addEventListener('load', async () => {
+    // Check if user has a pending claim from before refresh
+    checkForPendingClaim();
+    
     document.getElementById('connectButton').addEventListener('click', connectWallet);
     document.getElementById('continueToSchool').addEventListener('click', handleContinueToSchool);
     
@@ -38,6 +42,67 @@ window.addEventListener('load', async () => {
     document.getElementById('rollButton').addEventListener('click', rollDice);
     document.getElementById('claimButton').addEventListener('click', claimWinion);
 });
+
+// Check localStorage for pending claims
+function checkForPendingClaim() {
+    const pendingClaim = localStorage.getItem('winions_pending_claim');
+    
+    if (pendingClaim) {
+        try {
+            const claimData = JSON.parse(pendingClaim);
+            
+            // Restore pending claim state
+            hasPendingClaim = true;
+            currentRollTotal = claimData.rollTotal;
+            currentHouseName = claimData.houseName;
+            currentSchool = claimData.school;
+            
+            console.log('🚨 ANTI-REFRESH PROTECTION ACTIVATED!');
+            console.log('⚠️ User tried to refresh page to bypass claim!');
+            console.log('Restored pending claim:');
+            console.log('  Roll Total:', currentRollTotal);
+            console.log('  House:', currentHouseName);
+            console.log('  School:', currentSchool);
+            console.log('  Timestamp:', new Date(claimData.timestamp).toLocaleString());
+            
+            // Show prominent warning
+            setTimeout(() => {
+                showToast('🚨 YOU HAVE AN UNCLAIMED WINION!', 'error');
+                showToast('You must claim your previous Winion before rolling again!', 'warning');
+                showToast('Refreshing the page will not let you bypass this!', 'warning');
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Error parsing pending claim:', error);
+            localStorage.removeItem('winions_pending_claim');
+        }
+    } else {
+        console.log('✅ No pending claims detected');
+    }
+}
+
+// Save pending claim to localStorage (ANTI-REFRESH PROTECTION)
+function savePendingClaim(rollTotal, houseName, school) {
+    const claimData = {
+        rollTotal: rollTotal,
+        houseName: houseName,
+        school: school,
+        timestamp: Date.now(),
+        userAddress: userAddress // Track which wallet has the pending claim
+    };
+    
+    localStorage.setItem('winions_pending_claim', JSON.stringify(claimData));
+    console.log('🔒 PENDING CLAIM LOCKED IN LOCALSTORAGE');
+    console.log('   User CANNOT bypass by refreshing!');
+    console.log('   Data:', claimData);
+}
+
+// Clear pending claim from localStorage (ONLY after successful claim)
+function clearPendingClaim() {
+    localStorage.removeItem('winions_pending_claim');
+    hasPendingClaim = false;
+    console.log('✅ Pending claim cleared - user can roll again');
+}
 
 // Check if user is on mobile
 function isMobile() {
@@ -560,6 +625,9 @@ function revealHouse(total) {
     // Mark that there's a pending claim
     hasPendingClaim = true;
     
+    // 🔒 CRITICAL: Save to localStorage to prevent refresh bypass
+    savePendingClaim(currentRollTotal, currentHouseName, currentSchool);
+    
     // Add warning message
     const warningMsg = document.createElement('p');
     warningMsg.className = 'claim-warning';
@@ -616,8 +684,8 @@ async function claimWinion() {
             tokenId = parsed.args.tokenId.toString();
         }
         
-        // Clear pending claim flag
-        hasPendingClaim = false;
+        // ✅ CRITICAL: Clear pending claim from localStorage AFTER successful claim
+        clearPendingClaim();
         
         showToast(`🎉 Successfully claimed Winion #${tokenId}!`, 'success');
         
@@ -828,6 +896,9 @@ function resetToRollsScreen() {
     // Reset to rolls/purchase screen
     console.log('Resetting to rolls screen...');
     
+    // Clear pending claim when going back to purchase
+    clearPendingClaim();
+    
     document.getElementById('successModal').style.display = 'none';
     document.getElementById('diceScreen').style.display = 'none';
     document.getElementById('schoolScreen').style.display = 'none';
@@ -844,7 +915,6 @@ function resetToRollsScreen() {
     currentSchool = null;
     currentRollTotal = 0;
     currentHouseName = '';
-    hasPendingClaim = false; // Clear pending claim when going back to purchase
     
     // Reload roll counts to show updated info
     loadUserRolls();
