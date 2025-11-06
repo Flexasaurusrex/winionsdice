@@ -178,12 +178,18 @@ async function loadUserRolls() {
             continueButton.style.background = 'rgba(255, 0, 0, 0.3)';
             continueButton.style.borderColor = '#ff0000';
             continueButton.style.cursor = 'not-allowed';
+            console.log('⚠️ User has pending claim - Continue button locked');
         } else {
             continueButton.textContent = 'CONTINUE TO ROLL →';
             continueButton.style.background = '';
             continueButton.style.borderColor = '';
             continueButton.style.cursor = 'pointer';
+            console.log('✅ No pending claim - Continue button unlocked');
         }
+        
+        console.log(`Loaded rolls: ${freeRolls} free, ${paidRolls} paid`);
+        console.log(`Wallet still connected: ${userAddress}`);
+        console.log(`Distribution contract: ${CONFIG.DISTRIBUTION_CONTRACT}`);
         
         const isActive = await distributionContract.distributionActive();
         if (!isActive) {
@@ -636,24 +642,75 @@ async function showSuccessModal(tokenId, txHash) {
         const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
         const totalRolls = Number(freeRolls.toString()) + Number(paidRolls.toString());
         
+        console.log(`Remaining rolls after claim: ${totalRolls}`);
+        
         // Update the modal button based on remaining rolls
         const closeButton = document.querySelector('.close-button');
         
         if (totalRolls > 0) {
-            closeButton.textContent = `🎲 ROLL AGAIN (${totalRolls} roll${totalRolls > 1 ? 's' : ''} left)`;
+            // HAS ROLLS - Let them roll again!
+            closeButton.textContent = `🎲 ROLL AGAIN (${totalRolls} roll${totalRolls > 1 ? 's' : ''} remaining)`;
+            closeButton.style.background = 'linear-gradient(135deg, #50c878 0%, #2d7a4a 100%)';
+            closeButton.style.borderColor = '#50c878';
             closeButton.onclick = () => {
+                console.log('User wants to roll again!');
                 document.getElementById('successModal').style.display = 'none';
-                resetForNextRoll();
+                // Clear the pending claim flag since they claimed
+                hasPendingClaim = false;
+                // Go straight to school selection for next roll
+                document.getElementById('diceScreen').style.display = 'none';
+                document.getElementById('schoolScreen').style.display = 'block';
+                document.getElementById('houseResult').style.display = 'none';
+                document.getElementById('totalValue').textContent = '0';
+                
+                const spinningNumber = document.getElementById('spinningNumber');
+                if (spinningNumber) {
+                    spinningNumber.textContent = '0';
+                    spinningNumber.classList.remove('rolling', 'landing');
+                }
+                
+                currentSchool = null;
+                currentRollTotal = 0;
+                currentHouseName = '';
+                
+                showToast(`✅ ${totalRolls} roll${totalRolls > 1 ? 's' : ''} remaining! Pick your school.`, 'success');
             };
         } else {
-            closeButton.textContent = '💎 PURCHASE MORE ROLLS';
+            // NO ROLLS - Prompt to buy more!
+            closeButton.textContent = '💎 BUY MORE ROLLS';
+            closeButton.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+            closeButton.style.borderColor = '#f59e0b';
             closeButton.onclick = () => {
+                console.log('User needs to buy more rolls');
                 document.getElementById('successModal').style.display = 'none';
-                resetToRollsScreen();
+                // Clear the pending claim flag
+                hasPendingClaim = false;
+                // Go to purchase screen
+                document.getElementById('diceScreen').style.display = 'none';
+                document.getElementById('schoolScreen').style.display = 'none';
+                document.getElementById('rollsScreen').style.display = 'block';
+                document.getElementById('houseResult').style.display = 'none';
+                
+                currentSchool = null;
+                currentRollTotal = 0;
+                currentHouseName = '';
+                
+                // Show prominent message and highlight purchase section
+                showToast('💎 Out of rolls! Purchase more to keep playing!', 'warning');
+                setTimeout(() => {
+                    const purchaseSection = document.querySelector('.purchase-section');
+                    if (purchaseSection) {
+                        purchaseSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        purchaseSection.style.animation = 'pulse 1s ease-in-out 3';
+                    }
+                }, 500);
+                
+                // Reload roll counts
+                loadUserRolls();
             };
         }
         
-        // Add a secondary "View Collection" button
+        // Add/Update OpenSea button
         let viewButton = document.getElementById('viewCollectionButton');
         if (!viewButton) {
             viewButton = document.createElement('a');
@@ -689,45 +746,28 @@ async function showSuccessModal(tokenId, txHash) {
         
     } catch (error) {
         console.error('Error checking remaining rolls:', error);
+        // Default to purchase flow if error
+        const closeButton = document.querySelector('.close-button');
+        closeButton.textContent = '💎 BUY MORE ROLLS';
+        closeButton.onclick = () => {
+            document.getElementById('successModal').style.display = 'none';
+            hasPendingClaim = false;
+            resetToRollsScreen();
+        };
     }
     
     document.getElementById('successModal').style.display = 'flex';
 }
 
-function resetForNextRoll() {
-    // Safety check - should only be called after successful claim
-    if (hasPendingClaim) {
-        showToast('⚠️ You must claim your Winion first!', 'error');
-        return;
-    }
-    
-    // Reset for next roll WITHOUT going back to rolls screen
-    document.getElementById('diceScreen').style.display = 'none';
-    document.getElementById('schoolScreen').style.display = 'block';
-    document.getElementById('houseResult').style.display = 'none';
-    document.getElementById('totalValue').textContent = '0';
-    
-    const spinningNumber = document.getElementById('spinningNumber');
-    if (spinningNumber) {
-        spinningNumber.textContent = '0';
-        spinningNumber.classList.remove('rolling', 'landing');
-    }
-    
-    currentSchool = null;
-    currentRollTotal = 0;
-    currentHouseName = '';
-}
-
 function resetToRollsScreen() {
-    // If there's a pending claim, warn user but allow reset (they might need to buy rolls)
-    if (hasPendingClaim) {
-        showToast('⚠️ Warning: You have an unclaimed Winion! Claim it before rolling again.', 'warning');
-    }
+    // Reset to rolls/purchase screen
+    console.log('Resetting to rolls screen...');
     
     document.getElementById('successModal').style.display = 'none';
     document.getElementById('diceScreen').style.display = 'none';
     document.getElementById('schoolScreen').style.display = 'none';
     document.getElementById('houseResult').style.display = 'none';
+    document.getElementById('rollsScreen').style.display = 'block';
     document.getElementById('totalValue').textContent = '0';
     
     const spinningNumber = document.getElementById('spinningNumber');
@@ -739,8 +779,9 @@ function resetToRollsScreen() {
     currentSchool = null;
     currentRollTotal = 0;
     currentHouseName = '';
-    // Don't clear hasPendingClaim - keep the lock in place
+    hasPendingClaim = false; // Clear pending claim when going back to purchase
     
+    // Reload roll counts to show updated info
     loadUserRolls();
 }
 
