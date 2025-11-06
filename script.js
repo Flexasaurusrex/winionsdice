@@ -1,4 +1,4 @@
-// Winions Dice Roller - FIXED Smart Rolling
+// Winions Dice Roller - FINAL COMPLETE
 // Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
 let provider;
@@ -9,6 +9,7 @@ let currentSchool = null;
 let currentRollTotal = 0;
 let currentHouseName = '';
 let availableHouses = {};
+let hasPendingClaim = false; // Track if user has unclaimed roll
 
 const HOUSE_RANGES = {
     'House of Havoc': { min: 66, max: 99 },
@@ -28,7 +29,7 @@ const HOUSE_RANGES = {
 
 window.addEventListener('load', async () => {
     document.getElementById('connectButton').addEventListener('click', connectWallet);
-    document.getElementById('continueToSchool').addEventListener('click', showSchoolScreen);
+    document.getElementById('continueToSchool').addEventListener('click', handleContinueToSchool);
     
     document.querySelectorAll('.school-button').forEach(button => {
         button.addEventListener('click', () => selectSchool(button.dataset.school));
@@ -38,10 +39,19 @@ window.addEventListener('load', async () => {
     document.getElementById('claimButton').addEventListener('click', claimWinion);
 });
 
+// Check if user is on mobile
+function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 async function connectWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
-            alert('Please install MetaMask to use this app!');
+            if (isMobile()) {
+                showMobileInstructions();
+            } else {
+                alert('Please install MetaMask or another Web3 wallet to use this app!');
+            }
             return;
         }
 
@@ -57,6 +67,12 @@ async function connectWallet() {
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         
+        // Detect wallet type
+        const walletName = window.ethereum.isMetaMask ? 'MetaMask' :
+                          window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet' :
+                          window.ethereum.isRainbow ? 'Rainbow' :
+                          window.ethereum.isTrust ? 'Trust Wallet' : 'Web3 Wallet';
+        
         distributionContract = new ethers.Contract(
             CONFIG.DISTRIBUTION_CONTRACT,
             DISTRIBUTION_CONTRACT_ABI,
@@ -65,10 +81,11 @@ async function connectWallet() {
         
         const network = await provider.getNetwork();
         if (network.chainId !== CONFIG.CHAIN_ID) {
-            throw new Error('Please switch to Ethereum Mainnet');
+            await switchToMainnet();
+            return;
         }
         
-        document.getElementById('walletStatus').textContent = `Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+        document.getElementById('walletStatus').textContent = `Connected with ${walletName}: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
         
         await loadUserRolls();
         
@@ -76,7 +93,67 @@ async function connectWallet() {
         console.error('Wallet connection error:', error);
         document.getElementById('connectButton').disabled = false;
         document.getElementById('walletStatus').style.display = 'none';
+        
+        if (error.code === 4001) {
+            showToast('Connection rejected. Please try again.', 'error');
+        } else {
+            showToast('Failed to connect wallet. Please try again.', 'error');
+        }
     }
+}
+
+async function switchToMainnet() {
+    try {
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x1' }],
+        });
+        
+        // Retry connection after switching
+        setTimeout(connectWallet, 1000);
+    } catch (error) {
+        console.error('Network switch error:', error);
+        showToast('Please switch to Ethereum Mainnet in your wallet.', 'error');
+    }
+}
+
+function showMobileInstructions() {
+    const modal = document.createElement('div');
+    modal.className = 'mobile-modal';
+    modal.innerHTML = `
+        <div class="mobile-modal-content">
+            <h2>📱 Connect on Mobile</h2>
+            <div class="mobile-steps">
+                <div class="mobile-step">
+                    <span class="step-number">1</span>
+                    <p>Open your wallet app (MetaMask, Coinbase Wallet, etc.)</p>
+                </div>
+                <div class="mobile-step">
+                    <span class="step-number">2</span>
+                    <p>Tap the Browser tab</p>
+                </div>
+                <div class="mobile-step">
+                    <span class="step-number">3</span>
+                    <p>Paste this URL:</p>
+                    <div class="url-box">
+                        <span id="copyUrl">${window.location.hostname}</span>
+                        <button onclick="copyToClipboard('${window.location.hostname}')" class="copy-btn">COPY</button>
+                    </div>
+                </div>
+                <div class="mobile-step">
+                    <span class="step-number">4</span>
+                    <p>Click "Connect Wallet" when the site loads</p>
+                </div>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" class="close-mobile-btn">CLOSE</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text);
+    showToast('URL copied to clipboard!', 'success');
 }
 
 async function loadUserRolls() {
@@ -96,19 +173,18 @@ async function loadUserRolls() {
         
         const isActive = await distributionContract.distributionActive();
         if (!isActive) {
-            alert('⚠️ Distribution is not currently active. Please check back later!');
+            showToast('⚠️ Distribution is not currently active. Please check back later!', 'warning');
         }
         
     } catch (error) {
         console.error('Error loading rolls:', error);
-        alert('Error loading your rolls. Please refresh and try again.');
+        showToast('Error loading your rolls. Please refresh and try again.', 'error');
     }
 }
 
 async function purchaseRolls(numberOfRolls) {
     try {
-        document.getElementById('verificationStatus').innerHTML = 
-            '<p class="info">⏳ Preparing transaction...</p>';
+        showToast('Preparing transaction...', 'info');
         
         const [single, three, five] = await distributionContract.getPrices();
         let price;
@@ -121,30 +197,51 @@ async function purchaseRolls(numberOfRolls) {
             value: price
         });
         
-        document.getElementById('verificationStatus').innerHTML = 
-            '<p class="info">⏳ Transaction sent! Waiting for confirmation...</p>';
+        showToast('Transaction sent! Waiting for confirmation...', 'info');
         
         await tx.wait();
         
-        document.getElementById('verificationStatus').innerHTML = 
-            '<p class="success">✅ Rolls purchased successfully!</p>';
+        showToast(`✅ ${numberOfRolls} roll${numberOfRolls > 1 ? 's' : ''} purchased successfully!`, 'success');
         
         await loadUserRolls();
-        
-        setTimeout(() => {
-            document.getElementById('verificationStatus').innerHTML = '';
-        }, 3000);
         
     } catch (error) {
         console.error('Purchase error:', error);
         
-        if (error.code === 'ACTION_REJECTED') {
-            document.getElementById('verificationStatus').innerHTML = 
-                '<p class="error">❌ Transaction rejected</p>';
+        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+            showToast('Transaction rejected', 'error');
         } else {
-            document.getElementById('verificationStatus').innerHTML = 
-                `<p class="error">❌ ${error.message || 'Purchase failed'}</p>`;
+            showToast(error.message || 'Purchase failed', 'error');
         }
+    }
+}
+
+async function handleContinueToSchool() {
+    // Check if user has rolls BEFORE allowing them to continue
+    try {
+        const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
+        const totalRolls = Number(freeRolls.toString()) + Number(paidRolls.toString());
+        
+        if (totalRolls === 0) {
+            showToast('⚠️ You need to purchase rolls first!', 'warning');
+            // Highlight the purchase section
+            const purchaseSection = document.querySelector('.purchase-section');
+            purchaseSection.style.animation = 'pulse 1s ease-in-out 3';
+            return;
+        }
+        
+        // If they have a pending unclaimed roll, warn them
+        if (hasPendingClaim) {
+            if (!confirm('⚠️ You have an unclaimed Winion! Are you sure you want to roll again? You must claim your current roll first.')) {
+                return;
+            }
+        }
+        
+        showSchoolScreen();
+        
+    } catch (error) {
+        console.error('Error checking rolls:', error);
+        showToast('Error checking your rolls. Please try again.', 'error');
     }
 }
 
@@ -171,7 +268,7 @@ async function selectSchool(school) {
     
     await checkAvailableHouses();
     
-    createDice();
+    createDiceDisplay();
     
     document.getElementById('rollButton').disabled = false;
     document.getElementById('rollButton').textContent = '🎲 ROLL THE DICE 🎲';
@@ -191,17 +288,14 @@ async function checkAvailableHouses() {
                         count: countNum,
                         range: range
                     };
-                    console.log(`✅ ${houseName}: ${countNum} NFTs`);
                 }
             } catch (error) {
                 console.error(`Error checking ${houseName}:`, error);
             }
         }
         
-        console.log('Available houses:', Object.keys(availableHouses));
-        
         if (Object.keys(availableHouses).length === 0) {
-            alert('⚠️ No NFTs available in any house! Please contact admin.');
+            showToast('⚠️ No NFTs available in any house! Please contact admin.', 'error');
             document.getElementById('rollButton').disabled = true;
         }
         
@@ -210,134 +304,141 @@ async function checkAvailableHouses() {
     }
 }
 
-function createDice() {
+function createDiceDisplay() {
     const diceDisplay = document.getElementById('diceDisplay');
-    diceDisplay.innerHTML = '';
+    diceDisplay.innerHTML = '<div class="spinning-number" id="spinningNumber">0</div>';
     
-    for (let i = 0; i < 66; i++) {
-        const die = document.createElement('div');
-        die.className = 'die';
-        die.textContent = '?';
-        die.id = `die-${i}`;
-        diceDisplay.appendChild(die);
+    // Inject styles for spinning number
+    if (!document.getElementById('spinningNumberStyles')) {
+        const style = document.createElement('style');
+        style.id = 'spinningNumberStyles';
+        style.textContent = `
+            .spinning-number {
+                font-size: 180px;
+                font-weight: 900;
+                color: #ff1a1a;
+                text-shadow: 0 0 30px rgba(255, 26, 26, 0.8),
+                           0 0 60px rgba(255, 26, 26, 0.5);
+                margin: 60px auto;
+                min-height: 220px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: 'Arial Black', sans-serif;
+                letter-spacing: -5px;
+            }
+            
+            .spinning-number.rolling {
+                animation: spin3d 0.1s linear infinite;
+            }
+            
+            .spinning-number.landing {
+                animation: zoomLand 0.5s ease-out forwards;
+            }
+            
+            @keyframes spin3d {
+                0% { transform: rotateX(0deg) scale(1); }
+                100% { transform: rotateX(360deg) scale(1.1); }
+            }
+            
+            @keyframes zoomLand {
+                0% { transform: scale(1.3) rotateX(0deg); }
+                50% { transform: scale(0.9); }
+                100% { transform: scale(1); }
+            }
+            
+            @media (max-width: 768px) {
+                .spinning-number {
+                    font-size: 120px;
+                    min-height: 150px;
+                }
+            }
+        `;
+        document.head.appendChild(style);
     }
 }
 
-// FIXED: Generate dice that actually sum to target
 function generateSmartDiceRolls() {
     const availableHousesList = Object.values(availableHouses);
     
     if (availableHousesList.length === 0) {
-        // Fallback: random roll
-        const rolls = [];
-        for (let i = 0; i < 66; i++) {
-            rolls.push(Math.floor(Math.random() * 6) + 1);
-        }
-        return rolls;
+        const total = Math.floor(Math.random() * 331) + 66;
+        return total;
     }
     
-    // Pick random house with NFTs
     const randomHouse = availableHousesList[Math.floor(Math.random() * availableHousesList.length)];
-    
-    // Pick random target within house range
     const target = Math.floor(Math.random() * (randomHouse.range.max - randomHouse.range.min + 1)) + randomHouse.range.min;
     
-    console.log(`🎯 Target: ${target} (${Object.keys(availableHouses).find(k => availableHouses[k] === randomHouse)})`);
-    
-    // Generate 66 dice that sum to target
-    const rolls = [];
-    let remaining = target;
-    
-    // Roll first 65 dice
-    for (let i = 0; i < 65; i++) {
-        // Calculate how much we have left to distribute
-        const diceLeft = 66 - i;
-        const minPossible = diceLeft; // All remaining dice are 1
-        const maxPossible = diceLeft * 6; // All remaining dice are 6
-        
-        // Find valid range for this die
-        let minDie = Math.max(1, remaining - maxPossible + 6);
-        let maxDie = Math.min(6, remaining - minPossible + 1);
-        
-        // Roll within valid range
-        const roll = Math.floor(Math.random() * (maxDie - minDie + 1)) + minDie;
-        rolls.push(roll);
-        remaining -= roll;
-    }
-    
-    // Last die is whatever's remaining
-    rolls.push(remaining);
-    
-    // Validate
-    const sum = rolls.reduce((a, b) => a + b, 0);
-    console.log(`Rolls sum to: ${sum}, valid: ${rolls.every(r => r >= 1 && r <= 6)}`);
-    
-    return rolls;
+    return target;
 }
 
-function rollDice() {
-    const rollButton = document.getElementById('rollButton');
-    rollButton.disabled = true;
-    
-    const dice = document.querySelectorAll('.die');
-    
-    if (dice.length !== 66) {
-        console.error(`ERROR: Found ${dice.length} dice, should be 66!`);
-        alert('Dice loading error. Please refresh the page.');
-        rollButton.disabled = false;
+async function rollDice() {
+    // CHECK ROLLS AGAIN before rolling
+    try {
+        const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
+        const totalRolls = Number(freeRolls.toString()) + Number(paidRolls.toString());
+        
+        if (totalRolls === 0) {
+            showToast('⚠️ No rolls available! Redirecting to purchase...', 'warning');
+            setTimeout(() => {
+                resetToRollsScreen();
+            }, 2000);
+            return;
+        }
+    } catch (error) {
+        console.error('Error checking rolls before roll:', error);
+        showToast('Error checking your rolls. Please try again.', 'error');
         return;
     }
     
-    // Generate smart rolls that sum to target
-    const rolls = generateSmartDiceRolls();
+    const rollButton = document.getElementById('rollButton');
+    rollButton.disabled = true;
     
-    console.log('Final rolls:', rolls);
-    console.log('Sum:', rolls.reduce((a, b) => a + b, 0));
+    const spinningNumber = document.getElementById('spinningNumber');
+    spinningNumber.classList.add('rolling');
     
-    // Animate
-    dice.forEach((die, index) => {
-        die.classList.add('rolling');
+    const targetTotal = generateSmartDiceRolls();
+    
+    let elapsed = 0;
+    const duration = 2000;
+    const interval = 50;
+    
+    const roller = setInterval(() => {
+        const randomNum = Math.floor(Math.random() * 331) + 66;
+        spinningNumber.textContent = randomNum;
+        elapsed += interval;
         
-        setTimeout(() => {
-            die.textContent = rolls[index];
-            die.classList.remove('rolling');
+        if (elapsed >= duration) {
+            clearInterval(roller);
+            spinningNumber.classList.remove('rolling');
+            spinningNumber.classList.add('landing');
+            spinningNumber.textContent = targetTotal;
             
-            if (index === 65) {
-                setTimeout(() => {
-                    calculateTotal(rolls);
-                }, 500);
-            }
-        }, index * 30);
-    });
-}
-
-function calculateTotal(rolls) {
-    const total = rolls.reduce((sum, roll) => sum + roll, 0);
-    currentRollTotal = total;
-    
-    let currentCount = 0;
-    const increment = Math.ceil(total / 50);
-    const counter = setInterval(() => {
-        currentCount += increment;
-        if (currentCount >= total) {
-            currentCount = total;
-            clearInterval(counter);
             setTimeout(() => {
-                revealHouse(total);
+                spinningNumber.classList.remove('landing');
+                calculateTotal(targetTotal);
             }, 500);
         }
-        document.getElementById('totalValue').textContent = currentCount;
-    }, 20);
+    }, interval);
+}
+
+function calculateTotal(total) {
+    currentRollTotal = total;
+    
+    document.getElementById('totalValue').textContent = total;
+    
+    setTimeout(() => {
+        revealHouse(total);
+    }, 500);
 }
 
 function revealHouse(total) {
     const houseName = getHouseFromRoll(total);
     currentHouseName = houseName;
     
-    // Check if house has NFTs
     if (!availableHouses[houseName]) {
         console.error(`ERROR: Rolled into ${houseName} with 0 NFTs!`);
-        alert('⚠️ Error: Rolled into house with no NFTs. Please try again.');
+        showToast('⚠️ Error: Rolled into house with no NFTs. Please try again.', 'error');
         document.getElementById('rollButton').disabled = false;
         return;
     }
@@ -349,7 +450,7 @@ function revealHouse(total) {
     const countDisplay = document.createElement('p');
     countDisplay.style.color = '#00ff00';
     countDisplay.style.marginTop = '10px';
-    countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining`;
+    countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining in this house`;
     countDisplay.className = 'nft-count';
     
     const houseResult = document.getElementById('houseResult');
@@ -357,7 +458,25 @@ function revealHouse(total) {
     if (existingCount) existingCount.remove();
     houseResult.appendChild(countDisplay);
     
-    document.getElementById('rollButton').disabled = false;
+    // DISABLE ROLL BUTTON - Force claim
+    document.getElementById('rollButton').disabled = true;
+    document.getElementById('rollButton').textContent = '⚠️ CLAIM YOUR WINION FIRST';
+    
+    // Mark that there's a pending claim
+    hasPendingClaim = true;
+    
+    // Add warning message
+    const warningMsg = document.createElement('p');
+    warningMsg.className = 'claim-warning';
+    warningMsg.style.color = '#ffcc00';
+    warningMsg.style.marginTop = '15px';
+    warningMsg.style.fontWeight = 'bold';
+    warningMsg.style.animation = 'pulse 1.5s ease-in-out infinite';
+    warningMsg.textContent = '⚠️ You must claim this Winion before rolling again!';
+    
+    const existingWarning = houseResult.querySelector('.claim-warning');
+    if (existingWarning) existingWarning.remove();
+    houseResult.appendChild(warningMsg);
 }
 
 function getHouseFromRoll(total) {
@@ -375,12 +494,15 @@ async function claimWinion() {
         claimButton.disabled = true;
         claimButton.textContent = 'CLAIMING...';
         
+        showToast('Claiming your Winion...', 'info');
+        
         const tx = await distributionContract.claimWinion(
             currentRollTotal,
             currentHouseName
         );
         
         claimButton.textContent = 'WAITING FOR CONFIRMATION...';
+        showToast('Transaction sent! Waiting for confirmation...', 'info');
         
         const receipt = await tx.wait();
         
@@ -399,7 +521,12 @@ async function claimWinion() {
             tokenId = parsed.args.tokenId.toString();
         }
         
-        showSuccessModal(tokenId, tx.hash);
+        // Clear pending claim flag
+        hasPendingClaim = false;
+        
+        showToast(`🎉 Successfully claimed Winion #${tokenId}!`, 'success');
+        
+        await showSuccessModal(tokenId, tx.hash);
         
     } catch (error) {
         console.error('Claim error:', error);
@@ -408,21 +535,22 @@ async function claimWinion() {
         claimButton.disabled = false;
         claimButton.textContent = 'CLAIM YOUR WINION';
         
-        if (error.code === 'ACTION_REJECTED') {
-            alert('❌ Transaction rejected');
+        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+            showToast('Transaction rejected', 'error');
         } else if (error.message.includes('No rolls available')) {
-            alert('❌ No rolls available. Please purchase rolls first.');
+            showToast('❌ No rolls available. Please purchase rolls first.', 'error');
+            setTimeout(() => resetToRollsScreen(), 2000);
         } else if (error.message.includes('No NFTs available')) {
-            alert('❌ No NFTs available for this house.');
+            showToast('❌ No NFTs available for this house.', 'error');
         } else if (error.message.includes('Distribution is not active')) {
-            alert('❌ Distribution is not currently active.');
+            showToast('❌ Distribution is not currently active.', 'error');
         } else {
-            alert(`❌ ${error.message || 'Claim failed. Please try again.'}`);
+            showToast(error.message || 'Claim failed. Please try again.', 'error');
         }
     }
 }
 
-function showSuccessModal(tokenId, txHash) {
+async function showSuccessModal(tokenId, txHash) {
     document.getElementById('claimedHouseName').textContent = currentHouseName;
     document.getElementById('claimedTokenId').textContent = tokenId;
     document.getElementById('claimedRollTotal').textContent = currentRollTotal;
@@ -447,7 +575,86 @@ function showSuccessModal(tokenId, txHash) {
     const img = document.getElementById('claimedNFTImage');
     img.src = houseImages[currentHouseName] || 'havoc.gif';
     
+    // Check remaining rolls after this claim
+    try {
+        const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
+        const totalRolls = Number(freeRolls.toString()) + Number(paidRolls.toString());
+        
+        // Update the modal button based on remaining rolls
+        const closeButton = document.querySelector('.close-button');
+        
+        if (totalRolls > 0) {
+            closeButton.textContent = `🎲 ROLL AGAIN (${totalRolls} roll${totalRolls > 1 ? 's' : ''} left)`;
+            closeButton.onclick = () => {
+                document.getElementById('successModal').style.display = 'none';
+                resetForNextRoll();
+            };
+        } else {
+            closeButton.textContent = '💎 PURCHASE MORE ROLLS';
+            closeButton.onclick = () => {
+                document.getElementById('successModal').style.display = 'none';
+                resetToRollsScreen();
+            };
+        }
+        
+        // Add a secondary "View Collection" button
+        let viewButton = document.getElementById('viewCollectionButton');
+        if (!viewButton) {
+            viewButton = document.createElement('a');
+            viewButton.id = 'viewCollectionButton';
+            viewButton.className = 'view-collection-button';
+            viewButton.href = `https://opensea.io/assets/ethereum/0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733/${tokenId}`;
+            viewButton.target = '_blank';
+            viewButton.textContent = '👀 VIEW ON OPENSEA';
+            viewButton.style.cssText = `
+                display: block;
+                margin: 20px auto 10px;
+                padding: 12px 30px;
+                background: rgba(33, 150, 243, 0.2);
+                border: 2px solid #2196F3;
+                color: #2196F3;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: bold;
+                transition: all 0.3s ease;
+            `;
+            viewButton.onmouseover = function() {
+                this.style.background = 'rgba(33, 150, 243, 0.3)';
+            };
+            viewButton.onmouseout = function() {
+                this.style.background = 'rgba(33, 150, 243, 0.2)';
+            };
+            
+            const modalContent = document.querySelector('.modal-content');
+            modalContent.insertBefore(viewButton, closeButton);
+        } else {
+            viewButton.href = `https://opensea.io/assets/ethereum/0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733/${tokenId}`;
+        }
+        
+    } catch (error) {
+        console.error('Error checking remaining rolls:', error);
+    }
+    
     document.getElementById('successModal').style.display = 'flex';
+}
+
+function resetForNextRoll() {
+    // Reset for next roll WITHOUT going back to rolls screen
+    document.getElementById('diceScreen').style.display = 'none';
+    document.getElementById('schoolScreen').style.display = 'block';
+    document.getElementById('houseResult').style.display = 'none';
+    document.getElementById('totalValue').textContent = '0';
+    
+    const spinningNumber = document.getElementById('spinningNumber');
+    if (spinningNumber) {
+        spinningNumber.textContent = '0';
+        spinningNumber.classList.remove('rolling', 'landing');
+    }
+    
+    currentSchool = null;
+    currentRollTotal = 0;
+    currentHouseName = '';
+    hasPendingClaim = false;
 }
 
 function resetToRollsScreen() {
@@ -457,13 +664,130 @@ function resetToRollsScreen() {
     document.getElementById('houseResult').style.display = 'none';
     document.getElementById('totalValue').textContent = '0';
     
+    const spinningNumber = document.getElementById('spinningNumber');
+    if (spinningNumber) {
+        spinningNumber.textContent = '0';
+        spinningNumber.classList.remove('rolling', 'landing');
+    }
+    
     currentSchool = null;
     currentRollTotal = 0;
     currentHouseName = '';
+    hasPendingClaim = false;
     
     loadUserRolls();
 }
 
+// Toast notification system
+function showToast(message, type = 'info') {
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        `;
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Create toast
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    
+    const colors = {
+        success: '#10b981',
+        error: '#ef4444',
+        warning: '#f59e0b',
+        info: '#3b82f6'
+    };
+    
+    toast.innerHTML = `
+        <span style="font-size: 20px;">${icons[type]}</span>
+        <span>${message}</span>
+    `;
+    
+    toast.style.cssText = `
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(10px);
+        border: 2px solid ${colors[type]};
+        border-radius: 12px;
+        padding: 16px 24px;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 0 20px ${colors[type]}40;
+        animation: slideIn 0.3s ease-out;
+        max-width: 400px;
+        font-size: 14px;
+        font-weight: 500;
+    `;
+    
+    // Add animation styles if not already present
+    if (!document.getElementById('toastStyles')) {
+        const style = document.createElement('style');
+        style.id = 'toastStyles';
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOut {
+                to {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+            }
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.05); opacity: 0.8; }
+            }
+            @media (max-width: 768px) {
+                #toastContainer {
+                    right: 10px;
+                    left: 10px;
+                    top: 10px;
+                }
+                .toast {
+                    max-width: 100% !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    toastContainer.appendChild(toast);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in forwards';
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 5000);
+}
+
+// Event listeners for account and network changes
 if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
         if (accounts.length === 0) {
