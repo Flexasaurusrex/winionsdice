@@ -1,600 +1,541 @@
-// Winions Dice Roller - Complete with Roll Validation & Custom Toasts
-// Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
+// Winions Dice Roller - FINAL SEAMLESS VERSION
+// ✅ Spinning number animation
+// ✅ Post-roll flow (roll again or purchase)
+// ✅ Button disables after click
+// ✅ Smart inventory checking
+// ✅ Multi-wallet support
+// ✅ Mobile support
 
 let provider;
 let signer;
+let contract;
 let userAddress;
-let distributionContract;
-let currentSchool = null;
-let currentRollTotal = 0;
-let currentHouseName = '';
+let currentRolls = 0;
 let availableHouses = {};
-let userTotalRolls = 0;
+let isRolling = false; // Prevent multiple rolls
 
-const HOUSE_RANGES = {
-    'House of Havoc': { min: 66, max: 99 },
-    'House of Misfits': { min: 100, max: 132 },
-    'House of Frog': { min: 133, max: 165 },
-    'House of Theory': { min: 166, max: 198 },
-    'House of Spectrum': { min: 199, max: 231 },
-    'House of Clay': { min: 232, max: 264 },
-    'House of Stencil': { min: 265, max: 297 },
-    'House of Royal': { min: 298, max: 330 },
-    'House of Shadows': { min: 331, max: 363 },
-    'House of Hellish': { min: 364, max: 385 },
-    'House of Hologram': { min: 386, max: 392 },
-    'House of Gold': { min: 393, max: 395 },
-    'House of Death': { min: 396, max: 396 }
-};
+// Inject custom styles for spinning number and toasts
+function injectStyles() {
+    const styles = `
+        <style>
+            /* Spinning Number Container */
+            .dice-number-container {
+                width: 100%;
+                height: 400px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                perspective: 1000px;
+                margin: 40px 0;
+            }
+
+            .dice-number {
+                font-size: 180px;
+                font-weight: 900;
+                color: #ff0000;
+                text-shadow: 
+                    0 0 20px rgba(255, 0, 0, 0.8),
+                    0 0 40px rgba(255, 0, 0, 0.6),
+                    0 0 60px rgba(255, 0, 0, 0.4),
+                    0 0 80px rgba(255, 0, 0, 0.2);
+                font-family: 'Arial Black', sans-serif;
+                letter-spacing: -5px;
+                transition: all 0.3s ease;
+            }
+
+            .dice-number.spinning {
+                animation: spinNumber 0.1s linear infinite, glowPulse 0.3s ease-in-out infinite;
+            }
+
+            .dice-number.reveal {
+                animation: revealNumber 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            }
+
+            .dice-number.idle {
+                animation: idlePulse 2s ease-in-out infinite;
+            }
+
+            @keyframes spinNumber {
+                0% { transform: rotateX(0deg); }
+                100% { transform: rotateX(360deg); }
+            }
+
+            @keyframes glowPulse {
+                0%, 100% { 
+                    text-shadow: 
+                        0 0 20px rgba(255, 0, 0, 0.8),
+                        0 0 40px rgba(255, 0, 0, 0.6),
+                        0 0 60px rgba(255, 0, 0, 0.4);
+                }
+                50% { 
+                    text-shadow: 
+                        0 0 30px rgba(255, 0, 0, 1),
+                        0 0 60px rgba(255, 0, 0, 0.8),
+                        0 0 90px rgba(255, 0, 0, 0.6);
+                }
+            }
+
+            @keyframes revealNumber {
+                0% {
+                    transform: scale(0.5) rotateX(180deg);
+                    opacity: 0;
+                }
+                50% {
+                    transform: scale(1.2) rotateX(0deg);
+                }
+                100% {
+                    transform: scale(1) rotateX(0deg);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes idlePulse {
+                0%, 100% { 
+                    transform: scale(1);
+                    text-shadow: 
+                        0 0 20px rgba(255, 0, 0, 0.6),
+                        0 0 40px rgba(255, 0, 0, 0.4);
+                }
+                50% { 
+                    transform: scale(1.05);
+                    text-shadow: 
+                        0 0 30px rgba(255, 0, 0, 0.8),
+                        0 0 50px rgba(255, 0, 0, 0.6);
+                }
+            }
+
+            /* Mobile Responsive */
+            @media (max-width: 768px) {
+                .dice-number-container {
+                    height: 300px;
+                }
+                .dice-number {
+                    font-size: 120px;
+                }
+            }
+
+            @media (max-width: 480px) {
+                .dice-number-container {
+                    height: 250px;
+                }
+                .dice-number {
+                    font-size: 100px;
+                }
+            }
+
+            /* Custom Toast Notifications */
+            .custom-toast {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: rgba(0, 0, 0, 0.95);
+                backdrop-filter: blur(10px);
+                border: 2px solid #ff0000;
+                border-radius: 12px;
+                padding: 16px 24px;
+                color: white;
+                font-size: 16px;
+                font-weight: 600;
+                box-shadow: 
+                    0 0 20px rgba(255, 0, 0, 0.5),
+                    0 4px 20px rgba(0, 0, 0, 0.5);
+                z-index: 10000;
+                animation: slideIn 0.3s ease-out;
+                max-width: 400px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .custom-toast.success {
+                border-color: #00ff00;
+                box-shadow: 
+                    0 0 20px rgba(0, 255, 0, 0.5),
+                    0 4px 20px rgba(0, 0, 0, 0.5);
+            }
+
+            .custom-toast.error {
+                border-color: #ff0000;
+                box-shadow: 
+                    0 0 20px rgba(255, 0, 0, 0.5),
+                    0 4px 20px rgba(0, 0, 0, 0.5);
+            }
+
+            .custom-toast.warning {
+                border-color: #ffa500;
+                box-shadow: 
+                    0 0 20px rgba(255, 165, 0, 0.5),
+                    0 4px 20px rgba(0, 0, 0, 0.5);
+            }
+
+            .custom-toast.info {
+                border-color: #00bfff;
+                box-shadow: 
+                    0 0 20px rgba(0, 191, 255, 0.5),
+                    0 4px 20px rgba(0, 0, 0, 0.5);
+            }
+
+            .toast-icon {
+                font-size: 24px;
+            }
+
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            @media (max-width: 768px) {
+                .custom-toast {
+                    right: 10px;
+                    left: 10px;
+                    max-width: calc(100% - 20px);
+                }
+            }
+
+            /* Button Disabled State */
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+
+            /* Pulse Animation for Claim Button */
+            @keyframes pulse {
+                0%, 100% {
+                    transform: scale(1);
+                    box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+                }
+                50% {
+                    transform: scale(1.05);
+                    box-shadow: 0 0 20px 10px rgba(255, 0, 0, 0);
+                }
+            }
+
+            /* Mobile Instructions Modal */
+            .mobile-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.95);
+                backdrop-filter: blur(10px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                padding: 20px;
+            }
+
+            .mobile-modal-content {
+                background: #1a1a1a;
+                border: 2px solid #ff0000;
+                border-radius: 16px;
+                padding: 32px;
+                max-width: 500px;
+                width: 100%;
+                box-shadow: 0 0 40px rgba(255, 0, 0, 0.3);
+            }
+
+            .mobile-modal h3 {
+                color: #ff0000;
+                margin-top: 0;
+                font-size: 24px;
+                text-align: center;
+            }
+
+            .mobile-modal ol {
+                color: white;
+                line-height: 1.8;
+                padding-left: 20px;
+            }
+
+            .mobile-modal-buttons {
+                display: flex;
+                gap: 12px;
+                margin-top: 24px;
+            }
+
+            .mobile-modal-buttons button {
+                flex: 1;
+                padding: 12px;
+                border-radius: 8px;
+                border: 2px solid #ff0000;
+                background: transparent;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+
+            .mobile-modal-buttons button:hover {
+                background: #ff0000;
+                transform: scale(1.05);
+            }
+
+            .url-copy-box {
+                background: #000;
+                border: 1px solid #ff0000;
+                border-radius: 8px;
+                padding: 12px;
+                margin: 16px 0;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .url-copy-box input {
+                flex: 1;
+                background: transparent;
+                border: none;
+                color: white;
+                font-size: 14px;
+            }
+
+            .url-copy-box button {
+                padding: 8px 16px;
+                background: #ff0000;
+                border: none;
+                border-radius: 6px;
+                color: white;
+                cursor: pointer;
+                font-weight: 600;
+            }
+        </style>
+    `;
+    document.head.insertAdjacentHTML('beforeend', styles);
+}
+
+// Initialize styles on load
+document.addEventListener('DOMContentLoaded', injectStyles);
 
 // Custom Toast Notification System
 function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `custom-toast toast-${type}`;
-    toast.innerHTML = `
-        <div class="toast-content">
-            <span class="toast-icon">${getToastIcon(type)}</span>
-            <span class="toast-message">${message}</span>
-        </div>
-    `;
-    
-    document.body.appendChild(toast);
-    
-    // Trigger animation
-    setTimeout(() => toast.classList.add('show'), 10);
-    
-    // Remove after 5 seconds
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 5000);
-}
-
-function getToastIcon(type) {
     const icons = {
         success: '✅',
         error: '❌',
         warning: '⚠️',
-        info: 'ℹ️',
-        claim: '🎁'
+        info: 'ℹ️'
     };
-    return icons[type] || 'ℹ️';
-}
 
-// Add toast styles dynamically
-function injectToastStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .custom-toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #1a0000 0%, #330000 100%);
-            border: 2px solid #ff1a1a;
-            border-radius: 10px;
-            padding: 20px 25px;
-            min-width: 300px;
-            max-width: 500px;
-            box-shadow: 0 10px 40px rgba(255, 26, 26, 0.5), 0 0 20px rgba(255, 26, 26, 0.3);
-            transform: translateX(600px);
-            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            z-index: 10000;
-            font-family: 'Courier New', monospace;
-            backdrop-filter: blur(10px);
-        }
-        
-        .custom-toast.show {
-            transform: translateX(0);
-        }
-        
-        .toast-content {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .toast-icon {
-            font-size: 24px;
-            animation: pulse 2s infinite;
-        }
-        
-        .toast-message {
-            color: #fff;
-            font-size: 16px;
-            line-height: 1.5;
-            flex: 1;
-        }
-        
-        .toast-success {
-            border-color: #00ff00;
-            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.3), 0 0 20px rgba(0, 255, 0, 0.2);
-        }
-        
-        .toast-error {
-            border-color: #ff4444;
-            box-shadow: 0 10px 40px rgba(255, 68, 68, 0.3), 0 0 20px rgba(255, 68, 68, 0.2);
-        }
-        
-        .toast-warning {
-            border-color: #ffd700;
-            box-shadow: 0 10px 40px rgba(255, 215, 0, 0.3), 0 0 20px rgba(255, 215, 0, 0.2);
-        }
-        
-        .toast-claim {
-            border-color: #4a90e2;
-            box-shadow: 0 10px 40px rgba(74, 144, 226, 0.3), 0 0 20px rgba(74, 144, 226, 0.2);
-            animation: celebrateToast 0.5s ease-out;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-        
-        @keyframes celebrateToast {
-            0% { transform: translateX(600px) scale(0.8); }
-            50% { transform: translateX(-20px) scale(1.05); }
-            100% { transform: translateX(0) scale(1); }
-        }
-        
-        @media (max-width: 768px) {
-            .custom-toast {
-                top: 10px;
-                right: 10px;
-                left: 10px;
-                min-width: unset;
-                max-width: unset;
-            }
-        }
+    const toast = document.createElement('div');
+    toast.className = `custom-toast ${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type]}</span>
+        <span>${message}</span>
     `;
-    document.head.appendChild(style);
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
 }
 
-window.addEventListener('load', async () => {
-    injectToastStyles();
-    
-    document.getElementById('connectButton').addEventListener('click', connectWallet);
-    document.getElementById('continueToSchool').addEventListener('click', validateAndContinue);
-    
-    document.querySelectorAll('.school-button').forEach(button => {
-        button.addEventListener('click', () => selectSchool(button.dataset.school));
-    });
-    
-    document.getElementById('rollButton').addEventListener('click', rollDice);
-    document.getElementById('claimButton').addEventListener('click', claimWinion);
-});
-
-async function connectWallet() {
-    try {
-        // Mobile detection
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const isInWalletBrowser = typeof window.ethereum !== 'undefined';
-        
-        if (!isInWalletBrowser && isMobile) {
-            // User is on mobile but NOT in a wallet browser
-            showMobileInstructions(isIOS);
-            return;
-        }
-        
-        if (typeof window.ethereum === 'undefined') {
-            // Desktop - no wallet detected
-            showToast('No wallet detected. Please install a Web3 wallet.', 'warning');
-            setTimeout(() => {
-                if (confirm('No Web3 wallet detected. Would you like to see wallet options?')) {
-                    window.open('https://ethereum.org/wallets/find-wallet/', '_blank');
-                }
-            }, 1000);
-            return;
-        }
-
-        // Detect which wallet is connected
-        const walletName = detectWalletProvider();
-        console.log('Connecting with:', walletName);
-
-        document.getElementById('walletStatus').style.display = 'block';
-        document.getElementById('walletStatus').textContent = 'Opening wallet connection...';
-        document.getElementById('connectButton').disabled = true;
-
-        const accounts = await window.ethereum.request({ 
-            method: 'eth_requestAccounts' 
-        });
-        
-        userAddress = accounts[0];
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        
-        distributionContract = new ethers.Contract(
-            CONFIG.DISTRIBUTION_CONTRACT,
-            DISTRIBUTION_CONTRACT_ABI,
-            signer
-        );
-        
-        const network = await provider.getNetwork();
-        if (network.chainId !== CONFIG.CHAIN_ID) {
-            showToast('Please switch to Ethereum Mainnet', 'warning');
-            
-            // Try to switch network (works with most wallets)
-            try {
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x1' }], // Mainnet
-                });
-                
-                // Reload after network switch
-                window.location.reload();
-            } catch (switchError) {
-                // User rejected or wallet doesn't support switching
-                if (switchError.code === 4001) {
-                    showToast('Network switch rejected. Please switch to Ethereum Mainnet manually.', 'error');
-                } else {
-                    showToast('Please switch to Ethereum Mainnet in your wallet.', 'error');
-                }
-                document.getElementById('connectButton').disabled = false;
-                document.getElementById('walletStatus').style.display = 'none';
-                return;
-            }
-        }
-        
-        document.getElementById('walletStatus').textContent = `Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-        
-        showToast(`Connected with ${walletName}!`, 'success');
-        
-        await loadUserRolls();
-        
-    } catch (error) {
-        console.error('Wallet connection error:', error);
-        
-        if (error.code === 4001) {
-            showToast('Connection rejected. Please approve the connection in your wallet.', 'error');
-        } else if (error.code === -32002) {
-            showToast('Connection request already pending. Please check your wallet.', 'warning');
-        } else if (error.message && error.message.includes('ethereum')) {
-            showToast('Multiple wallets detected. Please disable all except one and refresh.', 'error');
-        } else {
-            showToast(error.message || 'Connection failed', 'error');
-        }
-        
-        document.getElementById('connectButton').disabled = false;
-        document.getElementById('walletStatus').style.display = 'none';
-    }
+// Mobile Detection
+function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-// Show mobile-specific instructions
-function showMobileInstructions(isIOS) {
+// Show Mobile Instructions Modal
+function showMobileInstructions() {
     const currentUrl = window.location.href;
     
-    // Create custom modal
     const modal = document.createElement('div');
-    modal.className = 'mobile-instructions-modal';
+    modal.className = 'mobile-modal';
     modal.innerHTML = `
         <div class="mobile-modal-content">
-            <h2>📱 Connect on Mobile</h2>
-            
-            <div class="instruction-step">
-                <div class="step-number">1</div>
-                <div class="step-text">
-                    <strong>Open MetaMask App</strong>
-                    <p>Launch the MetaMask app on your phone</p>
-                </div>
+            <h3>📱 Connect on Mobile</h3>
+            <ol>
+                <li><strong>Open Your Wallet App</strong><br>Launch MetaMask, Coinbase Wallet, Trust Wallet, or Rainbow</li>
+                <li><strong>Tap the Browser Tab</strong><br>Look for the browser icon (usually at the bottom)</li>
+                <li><strong>Paste this URL:</strong></li>
+            </ol>
+            <div class="url-copy-box">
+                <input type="text" value="${currentUrl}" readonly id="urlToCopy">
+                <button onclick="copyUrlToClipboard()">COPY</button>
             </div>
-            
-            <div class="instruction-step">
-                <div class="step-number">2</div>
-                <div class="step-text">
-                    <strong>Tap the Browser Tab</strong>
-                    <p>Look for the browser icon (usually bottom center)</p>
-                </div>
+            <ol start="4">
+                <li><strong>Connect Your Wallet</strong><br>Click "Connect Wallet" when the site loads</li>
+            </ol>
+            <div class="mobile-modal-buttons">
+                <button onclick="closeMobileModal()">CLOSE</button>
+                <button onclick="tryOpenInApp()">TRY OPENING IN APP</button>
             </div>
-            
-            <div class="instruction-step">
-                <div class="step-number">3</div>
-                <div class="step-text">
-                    <strong>Paste this URL:</strong>
-                    <div class="url-copy-box">
-                        <input type="text" readonly value="${currentUrl}" id="urlToCopy">
-                        <button onclick="copyUrlToClipboard()" class="copy-btn">COPY</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="instruction-step">
-                <div class="step-number">4</div>
-                <div class="step-text">
-                    <strong>Connect Your Wallet</strong>
-                    <p>Click "Connect Wallet" when the site loads</p>
-                </div>
-            </div>
-            
-            <div class="modal-actions">
-                <button onclick="tryDeepLink()" class="btn-primary">TRY OPENING IN APP</button>
-                <button onclick="closeInstructionsModal()" class="btn-secondary">CLOSE</button>
-            </div>
-            
-            <p class="modal-note">
+            <p style="text-align: center; color: #888; font-size: 12px; margin-top: 16px;">
                 💡 Works with MetaMask, Coinbase Wallet, Trust Wallet, Rainbow, and other mobile wallets
             </p>
         </div>
     `;
     
     document.body.appendChild(modal);
-    
-    // Inject modal styles
-    if (!document.getElementById('mobile-modal-styles')) {
-        const styles = document.createElement('style');
-        styles.id = 'mobile-modal-styles';
-        styles.textContent = `
-            .mobile-instructions-modal {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.95);
-                z-index: 10000;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-                overflow-y: auto;
-            }
-            
-            .mobile-modal-content {
-                background: linear-gradient(135deg, #1a0000 0%, #330000 100%);
-                border: 2px solid #ff1a1a;
-                border-radius: 15px;
-                padding: 30px;
-                max-width: 500px;
-                width: 100%;
-                box-shadow: 0 20px 60px rgba(255, 26, 26, 0.5);
-            }
-            
-            .mobile-modal-content h2 {
-                color: #ff1a1a;
-                text-align: center;
-                margin-bottom: 30px;
-                font-size: 28px;
-            }
-            
-            .instruction-step {
-                display: flex;
-                gap: 15px;
-                margin-bottom: 25px;
-                align-items: flex-start;
-            }
-            
-            .step-number {
-                background: #ff1a1a;
-                color: #fff;
-                width: 35px;
-                height: 35px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-                font-size: 18px;
-                flex-shrink: 0;
-            }
-            
-            .step-text {
-                flex: 1;
-            }
-            
-            .step-text strong {
-                color: #fff;
-                display: block;
-                margin-bottom: 5px;
-                font-size: 16px;
-            }
-            
-            .step-text p {
-                color: #999;
-                margin: 0;
-                font-size: 14px;
-            }
-            
-            .url-copy-box {
-                display: flex;
-                gap: 10px;
-                margin-top: 10px;
-            }
-            
-            .url-copy-box input {
-                flex: 1;
-                background: #1a1a1a;
-                border: 1px solid #ff1a1a;
-                color: #fff;
-                padding: 10px;
-                border-radius: 5px;
-                font-size: 12px;
-                font-family: 'Courier New', monospace;
-            }
-            
-            .copy-btn {
-                background: #ff1a1a;
-                border: none;
-                color: #fff;
-                padding: 10px 20px;
-                border-radius: 5px;
-                font-weight: bold;
-                cursor: pointer;
-                font-family: 'Courier New', monospace;
-            }
-            
-            .copy-btn:active {
-                transform: scale(0.95);
-            }
-            
-            .modal-actions {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                margin-top: 30px;
-            }
-            
-            .btn-primary, .btn-secondary {
-                padding: 15px;
-                border: 2px solid #ff1a1a;
-                border-radius: 5px;
-                font-weight: bold;
-                cursor: pointer;
-                font-family: 'Courier New', monospace;
-                font-size: 14px;
-            }
-            
-            .btn-primary {
-                background: #ff1a1a;
-                color: #fff;
-            }
-            
-            .btn-secondary {
-                background: transparent;
-                color: #ff1a1a;
-            }
-            
-            .modal-note {
-                text-align: center;
-                color: #999;
-                font-size: 12px;
-                margin-top: 20px;
-            }
-        `;
-        document.head.appendChild(styles);
-    }
 }
 
-// Copy URL to clipboard
 function copyUrlToClipboard() {
     const input = document.getElementById('urlToCopy');
     input.select();
-    input.setSelectionRange(0, 99999); // For mobile
-    
+    document.execCommand('copy');
+    showToast('URL copied to clipboard!', 'success');
+}
+
+function closeMobileModal() {
+    const modal = document.querySelector('.mobile-modal');
+    if (modal) modal.remove();
+}
+
+function tryOpenInApp() {
+    const currentUrl = window.location.href;
+    window.location.href = `https://metamask.app.link/dapp/${currentUrl.replace(/^https?:\/\//, '')}`;
+}
+
+// Connect Wallet with Universal Support
+async function connectWallet() {
     try {
-        document.execCommand('copy');
-        showToast('URL copied! Now paste it in MetaMask browser.', 'success');
-    } catch (err) {
-        // Fallback for modern browsers
-        navigator.clipboard.writeText(input.value).then(() => {
-            showToast('URL copied! Now paste it in MetaMask browser.', 'success');
-        }).catch(() => {
-            showToast('Please manually copy the URL', 'warning');
-        });
-    }
-}
-
-// Try deep link (backup option)
-function tryDeepLink() {
-    const currentUrl = window.location.href.replace(/^https?:\/\//, '');
-    const metamaskLink = `https://metamask.app.link/dapp/${currentUrl}`;
-    
-    showToast('Attempting to open MetaMask...', 'info');
-    window.location.href = metamaskLink;
-    
-    // If it doesn't work, the modal stays open for manual instructions
-    setTimeout(() => {
-        showToast('If MetaMask didn\'t open, follow the instructions above.', 'warning');
-    }, 3000);
-}
-
-// Close instructions modal
-function closeInstructionsModal() {
-    const modal = document.querySelector('.mobile-instructions-modal');
-    if (modal) {
-        modal.remove();
-    }
-}
-
-// Detect which wallet provider is being used
-function detectWalletProvider() {
-    if (!window.ethereum) return 'Unknown';
-    
-    // Check for specific wallet providers
-    if (window.ethereum.isMetaMask) return 'MetaMask';
-    if (window.ethereum.isCoinbaseWallet) return 'Coinbase Wallet';
-    if (window.ethereum.isTrust) return 'Trust Wallet';
-    if (window.ethereum.isRabby) return 'Rabby';
-    if (window.ethereum.isBraveWallet) return 'Brave Wallet';
-    if (window.ethereum.isFrame) return 'Frame';
-    if (window.ethereum.isTokenary) return 'Tokenary';
-    if (window.ethereum.isStatus) return 'Status';
-    if (window.ethereum.isTally) return 'Tally';
-    
-    // Check provider info
-    if (window.ethereum.providers && window.ethereum.providers.length > 0) {
-        // Multiple wallets installed - use the selected one
-        const selectedProvider = window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0];
-        if (selectedProvider.isMetaMask) return 'MetaMask';
-        if (selectedProvider.isCoinbaseWallet) return 'Coinbase Wallet';
-    }
-    
-    return 'Web3 Wallet';
-}
-
-async function loadUserRolls() {
-    try {
-        const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
-        
-        const freeNum = Number(freeRolls.toString());
-        const paidNum = Number(paidRolls.toString());
-        userTotalRolls = freeNum + paidNum;
-        
-        document.getElementById('freeRollsCount').textContent = freeNum;
-        document.getElementById('paidRollsCount').textContent = paidNum;
-        
-        const [single, three, five] = await distributionContract.getPrices();
-        document.getElementById('price1').textContent = `${ethers.utils.formatEther(single)} ETH`;
-        document.getElementById('price3').textContent = `${ethers.utils.formatEther(three)} ETH`;
-        document.getElementById('price5').textContent = `${ethers.utils.formatEther(five)} ETH`;
-        
-        document.getElementById('walletScreen').style.display = 'none';
-        document.getElementById('rollsScreen').style.display = 'block';
-        
-        const isActive = await distributionContract.distributionActive();
-        if (!isActive) {
-            showToast('Distribution is not currently active. Check back soon!', 'warning');
+        // Check if on mobile without wallet browser
+        if (isMobile() && !window.ethereum) {
+            showMobileInstructions();
+            return;
         }
+
+        if (!window.ethereum) {
+            showToast('Please install a Web3 wallet (MetaMask, Coinbase Wallet, Rainbow, etc.)', 'error');
+            return;
+        }
+
+        showToast('Connecting to wallet...', 'info');
+
+        provider = new ethers.providers.Web3Provider(window.ethereum);
         
+        const accounts = await provider.send("eth_requestAccounts", []);
+        userAddress = accounts[0];
+        
+        signer = provider.getSigner();
+
+        // Detect which wallet is connected
+        const walletName = window.ethereum.isMetaMask ? 'MetaMask' : 
+                          window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet' :
+                          window.ethereum.isRabby ? 'Rabby' :
+                          window.ethereum.isTrust ? 'Trust Wallet' :
+                          'Your Wallet';
+
+        // Check network
+        const network = await provider.getNetwork();
+        if (network.chainId !== CONFIG.CHAIN_ID) {
+            showToast('Switching to Ethereum Mainnet...', 'info');
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x1' }],
+                });
+            } catch (error) {
+                showToast('Please switch to Ethereum Mainnet manually', 'error');
+                return;
+            }
+        }
+
+        // Initialize contract
+        contract = new ethers.Contract(
+            CONFIG.DISTRIBUTION_CONTRACT,
+            DISTRIBUTION_CONTRACT_ABI,
+            signer
+        );
+
+        // Update UI
+        document.getElementById('connectButton').style.display = 'none';
+        document.getElementById('walletInfo').style.display = 'block';
+        document.getElementById('userAddress').textContent = 
+            `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+
+        showToast(`Connected with ${walletName}!`, 'success');
+
+        // Check rolls and available houses
+        await checkUserRolls();
+        await checkAvailableHouses();
+
     } catch (error) {
-        console.error('Error loading rolls:', error);
-        showToast('Error loading your rolls. Please refresh and try again.', 'error');
-    }
-}
-
-// Validate user has rolls before continuing
-function validateAndContinue() {
-    if (userTotalRolls === 0) {
-        showToast('You need to purchase rolls before you can play! Choose a package below.', 'warning');
-        
-        // Highlight purchase section
-        const purchaseSection = document.querySelector('.purchase-section');
-        if (purchaseSection) {
-            purchaseSection.style.animation = 'pulse 1s ease-in-out 3';
-            setTimeout(() => {
-                purchaseSection.style.animation = '';
-            }, 3000);
+        console.error('Connection error:', error);
+        if (error.code === 4001) {
+            showToast('Connection rejected. Please try again.', 'warning');
+        } else if (error.code === -32002) {
+            showToast('Connection request pending. Please check your wallet.', 'warning');
+        } else {
+            showToast('Failed to connect wallet', 'error');
         }
-        
-        return;
     }
-    
-    showSchoolScreen();
 }
 
+// Check Available Houses (Smart Inventory)
+async function checkAvailableHouses() {
+    try {
+        const houses = await contract.getAllHouses();
+        availableHouses = {};
+        
+        for (const house of houses) {
+            const count = await contract.getHouseInventoryCount(house);
+            if (count.toNumber() > 0) {
+                availableHouses[house] = count.toNumber();
+            }
+        }
+
+        console.log('Available houses:', availableHouses);
+
+        if (Object.keys(availableHouses).length === 0) {
+            showToast('No NFTs available for distribution yet', 'warning');
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error checking available houses:', error);
+        return false;
+    }
+}
+
+// Check User Rolls
+async function checkUserRolls() {
+    try {
+        const [freeRolls, paidRolls] = await contract.getUserRolls(userAddress);
+        currentRolls = freeRolls.toNumber() + paidRolls.toNumber();
+        
+        document.getElementById('rollCount').textContent = currentRolls;
+        
+        console.log('User rolls:', {
+            free: freeRolls.toNumber(),
+            paid: paidRolls.toNumber(),
+            total: currentRolls
+        });
+
+        return currentRolls;
+    } catch (error) {
+        console.error('Error checking rolls:', error);
+        return 0;
+    }
+}
+
+// Purchase Rolls
 async function purchaseRolls(numberOfRolls) {
     try {
-        showToast('Preparing transaction...', 'info');
-        
-        const [single, three, five] = await distributionContract.getPrices();
+        const prices = await contract.getPrices();
         let price;
         
-        if (numberOfRolls === 1) price = single;
-        else if (numberOfRolls === 3) price = three;
-        else if (numberOfRolls === 5) price = five;
-        
-        const tx = await distributionContract.purchaseRolls(numberOfRolls, {
-            value: price
-        });
+        if (numberOfRolls === 1) {
+            price = prices.single;
+        } else if (numberOfRolls === 3) {
+            price = prices.three;
+        } else if (numberOfRolls === 5) {
+            price = prices.five;
+        }
+
+        showToast(`Purchasing ${numberOfRolls} roll${numberOfRolls > 1 ? 's' : ''}...`, 'info');
+
+        const tx = await contract.purchaseRolls(numberOfRolls, { value: price });
         
         showToast('Transaction sent! Waiting for confirmation...', 'info');
         
@@ -602,495 +543,355 @@ async function purchaseRolls(numberOfRolls) {
         
         showToast(`Successfully purchased ${numberOfRolls} roll${numberOfRolls > 1 ? 's' : ''}!`, 'success');
         
-        await loadUserRolls();
+        await checkUserRolls();
         
     } catch (error) {
         console.error('Purchase error:', error);
-        
-        if (error.code === 'ACTION_REJECTED') {
-            showToast('Transaction rejected', 'error');
+        if (error.code === 4001) {
+            showToast('Transaction cancelled', 'warning');
         } else {
-            showToast(error.message || 'Purchase failed', 'error');
+            showToast('Failed to purchase rolls', 'error');
         }
     }
 }
 
-function showSchoolScreen() {
-    document.getElementById('rollsScreen').style.display = 'none';
-    document.getElementById('schoolScreen').style.display = 'block';
-}
-
-async function selectSchool(school) {
-    currentSchool = school;
-    document.getElementById('schoolScreen').style.display = 'none';
-    document.getElementById('diceScreen').style.display = 'block';
-    document.getElementById('chosenSchool').textContent = school.toUpperCase();
-    document.getElementById('rollButton').disabled = true;
-    document.getElementById('rollButton').textContent = 'CHECKING INVENTORY...';
+// Continue to Roll Screen
+async function continueToRoll() {
+    // Double-check rolls before proceeding
+    const rolls = await checkUserRolls();
     
-    const schoolColors = {
-        anarchy: '#ff6b35',
-        mischief: '#4a90e2',
-        luck: '#50c878'
-    };
-    
-    document.body.style.setProperty('--school-color', schoolColors[school] || '#ff1a1a');
-    
-    showToast(`Selected School of ${school.charAt(0).toUpperCase() + school.slice(1)}`, 'info');
-    
-    await checkAvailableHouses();
-    
-    createDice();
-    
-    document.getElementById('rollButton').disabled = false;
-    document.getElementById('rollButton').textContent = '🎲 ROLL THE DICE 🎲';
-}
-
-async function checkAvailableHouses() {
-    try {
-        availableHouses = {};
-        
-        for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
-            try {
-                const count = await distributionContract.getHouseInventoryCount(houseName);
-                const countNum = Number(count.toString());
-                
-                if (countNum > 0) {
-                    availableHouses[houseName] = {
-                        count: countNum,
-                        range: range
-                    };
-                }
-            } catch (error) {
-                console.error(`Error checking ${houseName}:`, error);
-            }
-        }
-        
-        if (Object.keys(availableHouses).length === 0) {
-            showToast('No NFTs available in any house! Please contact admin.', 'error');
-            document.getElementById('rollButton').disabled = true;
-        }
-        
-    } catch (error) {
-        console.error('Error checking houses:', error);
+    if (rolls === 0) {
+        showToast('You need to purchase rolls first!', 'warning');
+        // Highlight purchase section
+        document.getElementById('purchaseSection').scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('purchaseSection').style.animation = 'pulse 1s ease-in-out 3';
+        return;
     }
+
+    // Check if NFTs are available
+    const hasNFTs = await checkAvailableHouses();
+    if (!hasNFTs) {
+        showToast('No NFTs available for distribution yet', 'error');
+        return;
+    }
+
+    document.getElementById('purchaseSection').style.display = 'none';
+    document.getElementById('rollSection').style.display = 'block';
+    
+    // Create the spinning number container
+    createSpinningNumberDisplay();
 }
 
-// Create elegant number display instead of 66 dice
-function createDice() {
-    const diceDisplay = document.getElementById('diceDisplay');
-    diceDisplay.innerHTML = '';
-    diceDisplay.className = 'dice-display-modern';
-    
-    // Create single glowing number display
-    const numberDisplay = document.createElement('div');
-    numberDisplay.className = 'roll-number-display';
-    numberDisplay.innerHTML = `
-        <div class="number-glow-container">
-            <div class="number-value" id="rollingNumber">?</div>
-            <div class="number-glow"></div>
+// Create Spinning Number Display
+function createSpinningNumberDisplay() {
+    const container = document.getElementById('diceContainer');
+    container.innerHTML = `
+        <div class="dice-number-container">
+            <div class="dice-number" id="spinningNumber">0</div>
         </div>
     `;
-    
-    diceDisplay.appendChild(numberDisplay);
-    
-    // Inject modern styles
-    if (!document.getElementById('modern-dice-styles')) {
-        const styles = document.createElement('style');
-        styles.id = 'modern-dice-styles';
-        styles.textContent = `
-            .dice-display-modern {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                min-height: 400px;
-                padding: 40px;
-            }
-            
-            .roll-number-display {
-                position: relative;
-                width: 100%;
-                max-width: 500px;
-            }
-            
-            .number-glow-container {
-                position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                aspect-ratio: 1;
-            }
-            
-            .number-value {
-                font-size: clamp(120px, 20vw, 280px);
-                font-weight: bold;
-                color: #fff;
-                text-shadow: 
-                    0 0 20px rgba(255, 26, 26, 0.8),
-                    0 0 40px rgba(255, 26, 26, 0.6),
-                    0 0 60px rgba(255, 26, 26, 0.4),
-                    0 0 80px rgba(255, 26, 26, 0.2);
-                font-family: 'Courier New', monospace;
-                z-index: 2;
-                position: relative;
-                letter-spacing: -0.05em;
-            }
-            
-            .number-glow {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                background: radial-gradient(circle, rgba(255, 26, 26, 0.3) 0%, transparent 70%);
-                filter: blur(40px);
-                animation: pulse-glow 2s ease-in-out infinite;
-                z-index: 1;
-            }
-            
-            .number-value.spinning {
-                animation: spin-number 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            }
-            
-            .number-value.revealing {
-                animation: reveal-number 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-            }
-            
-            @keyframes spin-number {
-                0% {
-                    transform: rotateY(0deg) scale(1);
-                    filter: blur(0px);
-                }
-                50% {
-                    transform: rotateY(180deg) scale(1.2);
-                    filter: blur(3px);
-                    color: #ff1a1a;
-                }
-                100% {
-                    transform: rotateY(360deg) scale(1);
-                    filter: blur(0px);
-                }
-            }
-            
-            @keyframes reveal-number {
-                0% {
-                    transform: scale(0.5);
-                    opacity: 0;
-                    filter: blur(20px);
-                }
-                50% {
-                    transform: scale(1.15);
-                }
-                100% {
-                    transform: scale(1);
-                    opacity: 1;
-                    filter: blur(0px);
-                }
-            }
-            
-            @keyframes pulse-glow {
-                0%, 100% {
-                    opacity: 0.6;
-                    transform: scale(1);
-                }
-                50% {
-                    opacity: 1;
-                    transform: scale(1.1);
-                }
-            }
-            
-            @media (max-width: 768px) {
-                .dice-display-modern {
-                    min-height: 300px;
-                    padding: 20px;
-                }
-                
-                .number-value {
-                    font-size: clamp(80px, 25vw, 180px);
-                }
-            }
-        `;
-        document.head.appendChild(styles);
-    }
 }
 
-function generateSmartDiceRolls() {
-    const availableHousesList = Object.values(availableHouses);
-    
-    if (availableHousesList.length === 0) {
-        const rolls = [];
-        for (let i = 0; i < 66; i++) {
-            rolls.push(Math.floor(Math.random() * 6) + 1);
-        }
-        return rolls;
-    }
-    
-    const randomHouse = availableHousesList[Math.floor(Math.random() * availableHousesList.length)];
-    const target = Math.floor(Math.random() * (randomHouse.range.max - randomHouse.range.min + 1)) + randomHouse.range.min;
-    
-    const rolls = [];
-    let remaining = target;
-    
-    for (let i = 0; i < 65; i++) {
-        const diceLeft = 66 - i;
-        const minPossible = diceLeft;
-        const maxPossible = diceLeft * 6;
-        
-        let minDie = Math.max(1, remaining - maxPossible + 6);
-        let maxDie = Math.min(6, remaining - minPossible + 1);
-        
-        const roll = Math.floor(Math.random() * (maxDie - minDie + 1)) + minDie;
-        rolls.push(roll);
-        remaining -= roll;
-    }
-    
-    rolls.push(remaining);
-    
-    return rolls;
-}
-
+// Roll Dice with Spinning Number
 async function rollDice() {
-    // CRITICAL: Check rolls before allowing dice roll
-    if (userTotalRolls === 0) {
-        showToast('You have no rolls left! Purchase more rolls to continue.', 'warning');
-        
-        // Take them back to purchase screen
-        document.getElementById('diceScreen').style.display = 'none';
-        document.getElementById('schoolScreen').style.display = 'none';
-        document.getElementById('rollsScreen').style.display = 'block';
-        
+    // CRITICAL: Check if there's an unclaimed roll first
+    if (window.currentRoll && !window.currentRoll.claimed) {
+        showToast('⚠️ You must claim your previous Winion before rolling again!', 'warning');
+        // Scroll to claim button
+        document.getElementById('rollResult').scrollIntoView({ behavior: 'smooth' });
+        // Pulse the claim button
+        const claimButton = document.getElementById('claimButton');
+        claimButton.style.animation = 'pulse 0.5s ease-in-out 3';
         return;
     }
-    
+
+    // CRITICAL: Check rolls one more time and prevent double-clicking
+    if (isRolling) {
+        console.log('Already rolling, please wait...');
+        return;
+    }
+
+    const rolls = await checkUserRolls();
+    if (rolls === 0) {
+        showToast('You have no rolls left! Redirecting to purchase...', 'warning');
+        setTimeout(() => {
+            document.getElementById('rollSection').style.display = 'none';
+            document.getElementById('purchaseSection').style.display = 'block';
+            document.getElementById('purchaseSection').scrollIntoView({ behavior: 'smooth' });
+        }, 1500);
+        return;
+    }
+
+    // Set rolling state and disable button
+    isRolling = true;
     const rollButton = document.getElementById('rollButton');
     rollButton.disabled = true;
-    
-    const numberDisplay = document.getElementById('rollingNumber');
-    
-    if (!numberDisplay) {
-        console.error('Number display not found!');
-        showToast('Display error. Please refresh the page.', 'error');
-        rollButton.disabled = false;
-        return;
-    }
-    
-    // Generate the roll total
-    const rolls = generateSmartDiceRolls();
-    const finalTotal = rolls.reduce((a, b) => a + b, 0);
-    
-    showToast('Rolling...', 'info');
-    
-    // Spinning animation phase (rapid number changes)
-    let spinCount = 0;
-    const spinDuration = 2000; // 2 seconds of spinning
-    const spinInterval = 50; // Update every 50ms
-    
-    numberDisplay.classList.add('spinning');
-    
-    const spinAnimation = setInterval(() => {
-        // Show random numbers while spinning
-        const randomNum = Math.floor(Math.random() * 331) + 66; // 66-396
-        numberDisplay.textContent = randomNum;
-        spinCount++;
-        
-        if (spinCount * spinInterval >= spinDuration) {
-            clearInterval(spinAnimation);
-            
-            // Remove spinning class
-            numberDisplay.classList.remove('spinning');
-            
-            // Show final number with reveal animation
-            setTimeout(() => {
-                numberDisplay.classList.add('revealing');
-                numberDisplay.textContent = finalTotal;
-                
-                // Remove revealing class after animation
-                setTimeout(() => {
-                    numberDisplay.classList.remove('revealing');
-                    calculateTotal(rolls);
-                }, 800);
-            }, 100);
-        }
-    }, spinInterval);
-}
+    rollButton.textContent = 'ROLLING...';
 
-function calculateTotal(rolls) {
-    const total = rolls.reduce((sum, roll) => sum + roll, 0);
-    currentRollTotal = total;
-    
-    let currentCount = 0;
-    const increment = Math.ceil(total / 50);
-    const counter = setInterval(() => {
-        currentCount += increment;
-        if (currentCount >= total) {
-            currentCount = total;
-            clearInterval(counter);
-            setTimeout(() => {
-                revealHouse(total);
-            }, 500);
-        }
-        document.getElementById('totalValue').textContent = currentCount;
-    }, 20);
-}
-
-function revealHouse(total) {
-    const houseName = getHouseFromRoll(total);
-    currentHouseName = houseName;
-    
-    if (!availableHouses[houseName]) {
-        console.error(`ERROR: Rolled into ${houseName} with 0 NFTs!`);
-        showToast('Rolled into house with no NFTs. Please try again.', 'error');
-        document.getElementById('rollButton').disabled = false;
-        return;
-    }
-    
-    document.getElementById('rolledHouseName').textContent = houseName;
-    document.getElementById('houseResult').style.display = 'block';
-    
-    const remaining = availableHouses[houseName].count;
-    const countDisplay = document.createElement('p');
-    countDisplay.style.color = '#00ff00';
-    countDisplay.style.marginTop = '10px';
-    countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining`;
-    countDisplay.className = 'nft-count';
-    
-    const houseResult = document.getElementById('houseResult');
-    const existingCount = houseResult.querySelector('.nft-count');
-    if (existingCount) existingCount.remove();
-    houseResult.appendChild(countDisplay);
-    
-    showToast(`You rolled into ${houseName}!`, 'success');
-    
-    document.getElementById('rollButton').disabled = false;
-}
-
-function getHouseFromRoll(total) {
-    for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
-        if (total >= range.min && total <= range.max) {
-            return houseName;
-        }
-    }
-    return 'Unknown House';
-}
-
-async function claimWinion() {
     try {
-        const claimButton = document.getElementById('claimButton');
-        claimButton.disabled = true;
-        claimButton.textContent = 'CLAIMING...';
+        const numberDisplay = document.getElementById('spinningNumber');
         
-        showToast('Claiming your Winion...', 'claim');
+        // Pick a random available house
+        const houseNames = Object.keys(availableHouses);
+        if (houseNames.length === 0) {
+            showToast('No NFTs available!', 'error');
+            isRolling = false;
+            rollButton.disabled = false;
+            rollButton.textContent = 'ROLL DICE';
+            return;
+        }
+
+        const targetHouse = houseNames[Math.floor(Math.random() * houseNames.length)];
         
-        const tx = await distributionContract.claimWinion(
-            currentRollTotal,
-            currentHouseName
-        );
+        // Get house roll range
+        const houseRanges = {
+            "House of Havoc": [66, 175],
+            "House of Misfits": [176, 230],
+            "House of Frog": [231, 263],
+            "House of Theory": [264, 290],
+            "House of Spectrum": [291, 312],
+            "House of Clay": [313, 329],
+            "House of Stencil": [330, 345],
+            "House of Royal": [346, 356],
+            "House of Shadows": [357, 367],
+            "House of Hellish": [368, 378],
+            "House of Hologram": [379, 389],
+            "House of Gold": [390, 394],
+            "House of Death": [395, 396]
+        };
+
+        const [min, max] = houseRanges[targetHouse];
+        const targetNumber = Math.floor(Math.random() * (max - min + 1)) + min;
+
+        console.log(`Target house: ${targetHouse}, Target number: ${targetNumber}`);
+
+        // Start spinning animation
+        numberDisplay.classList.add('spinning');
         
-        claimButton.textContent = 'WAITING FOR CONFIRMATION...';
+        // Spin for 2 seconds with random numbers
+        const spinDuration = 2000;
+        const spinInterval = 100;
+        let elapsed = 0;
+
+        const spinTimer = setInterval(() => {
+            const randomNum = Math.floor(Math.random() * 331) + 66; // 66-396
+            numberDisplay.textContent = randomNum;
+            elapsed += spinInterval;
+
+            if (elapsed >= spinDuration) {
+                clearInterval(spinTimer);
+                
+                // Reveal final number
+                numberDisplay.classList.remove('spinning');
+                numberDisplay.classList.add('reveal');
+                numberDisplay.textContent = targetNumber;
+
+                setTimeout(() => {
+                    numberDisplay.classList.remove('reveal');
+                    numberDisplay.classList.add('idle');
+                }, 500);
+
+                // Show result and claim button
+                setTimeout(() => {
+                    showRollResult(targetNumber, targetHouse);
+                }, 1000);
+            }
+        }, spinInterval);
+
+    } catch (error) {
+        console.error('Roll error:', error);
+        showToast('Failed to roll dice', 'error');
+        isRolling = false;
+        rollButton.disabled = false;
+        rollButton.textContent = 'ROLL DICE';
+    }
+}
+
+// Show Roll Result
+function showRollResult(rollTotal, houseName) {
+    document.getElementById('rollResultText').textContent = 
+        `You rolled ${rollTotal}! You landed in the ${houseName}!`;
+    document.getElementById('rollResult').style.display = 'block';
+    
+    // Store for claiming - mark as UNCLAIMED
+    window.currentRoll = { 
+        rollTotal, 
+        houseName,
+        claimed: false  // CRITICAL: Track claim status
+    };
+    
+    // Re-enable roll button but it will be blocked until claim
+    const rollButton = document.getElementById('rollButton');
+    rollButton.disabled = false;
+    rollButton.textContent = 'ROLL DICE';
+    isRolling = false;
+}
+
+// Claim Winion NFT
+async function claimWinion() {
+    if (!window.currentRoll) {
+        showToast('No roll to claim!', 'error');
+        return;
+    }
+
+    if (window.currentRoll.claimed) {
+        showToast('You already claimed this roll!', 'warning');
+        return;
+    }
+
+    const claimButton = document.getElementById('claimButton');
+    claimButton.disabled = true;
+    claimButton.textContent = 'CLAIMING...';
+
+    try {
+        const { rollTotal, houseName } = window.currentRoll;
+
+        showToast('Sending claim transaction...', 'info');
+
+        const tx = await contract.claimWinion(rollTotal, houseName);
+        
         showToast('Transaction sent! Waiting for confirmation...', 'info');
         
         const receipt = await tx.wait();
-        
-        const event = receipt.logs.find(log => {
-            try {
-                const parsed = distributionContract.interface.parseLog(log);
-                return parsed.name === 'NFTDistributed';
-            } catch {
-                return false;
-            }
-        });
-        
-        let tokenId = 'Unknown';
-        if (event) {
-            const parsed = distributionContract.interface.parseLog(event);
-            tokenId = parsed.args.tokenId.toString();
-        }
-        
-        showToast(`🎉 Claimed Winion #${tokenId}!`, 'success');
-        
-        showSuccessModal(tokenId, tx.hash);
-        
+
+        // Parse events to get token ID
+        const event = receipt.events.find(e => e.event === 'NFTDistributed');
+        const tokenId = event ? event.args.tokenId.toString() : 'your';
+
+        showToast(`🎉 Successfully claimed Winion #${tokenId}!`, 'success');
+
+        // CRITICAL: Mark as claimed
+        window.currentRoll.claimed = true;
+
+        // Update rolls
+        await checkUserRolls();
+
+        // Check remaining NFTs in this house
+        const remainingInHouse = await contract.getHouseInventoryCount(houseName);
+        console.log(`Remaining NFTs in ${houseName}:`, remainingInHouse.toString());
+
+        // Update available houses
+        await checkAvailableHouses();
+
+        // Show post-claim flow
+        showPostClaimFlow();
+
     } catch (error) {
         console.error('Claim error:', error);
-        
-        const claimButton = document.getElementById('claimButton');
-        claimButton.disabled = false;
-        claimButton.textContent = 'CLAIM YOUR WINION';
-        
-        if (error.code === 'ACTION_REJECTED') {
-            showToast('Transaction rejected', 'error');
-        } else if (error.message.includes('No rolls available')) {
-            showToast('No rolls available. Please purchase rolls first.', 'warning');
-        } else if (error.message.includes('No NFTs available')) {
-            showToast('No NFTs available for this house.', 'error');
-        } else if (error.message.includes('Distribution is not active')) {
-            showToast('Distribution is not currently active.', 'error');
+        if (error.code === 4001) {
+            showToast('Transaction cancelled', 'warning');
         } else {
-            showToast(error.message || 'Claim failed. Please try again.', 'error');
+            showToast('Failed to claim Winion', 'error');
         }
+        claimButton.disabled = false;
+        claimButton.textContent = 'CLAIM WINION';
     }
 }
 
-function showSuccessModal(tokenId, txHash) {
-    document.getElementById('claimedHouseName').textContent = currentHouseName;
-    document.getElementById('claimedTokenId').textContent = tokenId;
-    document.getElementById('claimedRollTotal').textContent = currentRollTotal;
-    document.getElementById('etherscanLink').href = `${CONFIG.ETHERSCAN_URL}/tx/${txHash}`;
+// Show Post-Claim Flow
+async function showPostClaimFlow() {
+    // Hide roll result
+    document.getElementById('rollResult').style.display = 'none';
     
-    const houseImages = {
-        'House of Havoc': 'havoc.gif',
-        'House of Misfits': 'misfit.gif',
-        'House of Frog': 'frog.gif',
-        'House of Theory': 'theory.gif',
-        'House of Spectrum': 'spectrum.gif',
-        'House of Clay': 'clay.gif',
-        'House of Stencil': 'stencil.gif',
-        'House of Royal': 'royal.gif',
-        'House of Shadows': 'shadow.gif',
-        'House of Hellish': 'hellish.gif',
-        'House of Hologram': 'hologram.gif',
-        'House of Gold': 'gold.gif',
-        'House of Death': 'winionswhat.gif'
-    };
+    // Check remaining rolls
+    const rolls = await checkUserRolls();
     
-    const img = document.getElementById('claimedNFTImage');
-    img.src = houseImages[currentHouseName] || 'havoc.gif';
-    
-    document.getElementById('successModal').style.display = 'flex';
+    if (rolls > 0) {
+        // Has rolls left - prompt to roll again
+        showPostClaimModal('roll-again', rolls);
+    } else {
+        // No rolls left - prompt to purchase
+        showPostClaimModal('purchase-more');
+    }
 }
 
-function resetToRollsScreen() {
-    document.getElementById('successModal').style.display = 'none';
-    document.getElementById('diceScreen').style.display = 'none';
-    document.getElementById('schoolScreen').style.display = 'none';
-    document.getElementById('houseResult').style.display = 'none';
-    document.getElementById('totalValue').textContent = '0';
+// Show Post-Claim Modal
+function showPostClaimModal(type, rollsLeft = 0) {
+    const modal = document.createElement('div');
+    modal.className = 'mobile-modal';
     
-    currentSchool = null;
-    currentRollTotal = 0;
-    currentHouseName = '';
+    if (type === 'roll-again') {
+        modal.innerHTML = `
+            <div class="mobile-modal-content">
+                <h3>🎲 Roll Again?</h3>
+                <p style="color: white; text-align: center; font-size: 18px; margin: 20px 0;">
+                    You have <strong style="color: #ff0000;">${rollsLeft} roll${rollsLeft > 1 ? 's' : ''}</strong> remaining!
+                </p>
+                <div class="mobile-modal-buttons">
+                    <button onclick="resetForNewRoll()">ROLL AGAIN</button>
+                    <button onclick="closePostClaimModal()">DONE</button>
+                </div>
+            </div>
+        `;
+    } else {
+        modal.innerHTML = `
+            <div class="mobile-modal-content">
+                <h3>🎰 Out of Rolls!</h3>
+                <p style="color: white; text-align: center; font-size: 18px; margin: 20px 0;">
+                    You've used all your rolls.<br>
+                    Purchase more to keep playing!
+                </p>
+                <div class="mobile-modal-buttons">
+                    <button onclick="backToPurchase()">PURCHASE ROLLS</button>
+                    <button onclick="closePostClaimModal()">DONE</button>
+                </div>
+            </div>
+        `;
+    }
     
-    loadUserRolls();
+    document.body.appendChild(modal);
 }
 
-if (window.ethereum) {
-    window.ethereum.on('accountsChanged', (accounts) => {
-        if (accounts.length === 0) {
-            showToast('Wallet disconnected', 'info');
-            location.reload();
-        } else {
-            userAddress = accounts[0];
-            showToast('Account changed', 'info');
-            loadUserRolls();
-        }
-    });
+// Reset For New Roll
+function resetForNewRoll() {
+    // Only allow reset if previous roll was claimed
+    if (window.currentRoll && !window.currentRoll.claimed) {
+        showToast('⚠️ You must claim your Winion first!', 'warning');
+        return;
+    }
+
+    closePostClaimModal();
     
-    window.ethereum.on('chainChanged', (chainId) => {
-        showToast('Network changed. Reloading...', 'info');
-        setTimeout(() => location.reload(), 1000);
-    });
+    // Reset UI
+    document.getElementById('rollResult').style.display = 'none';
+    document.getElementById('rollButton').disabled = false;
+    document.getElementById('rollButton').textContent = 'ROLL DICE';
+    document.getElementById('claimButton').disabled = false;
+    document.getElementById('claimButton').textContent = 'CLAIM WINION';
     
-    // Handle disconnect event (supported by some wallets)
-    window.ethereum.on('disconnect', () => {
-        showToast('Wallet disconnected', 'info');
-        location.reload();
-    });
+    // Clear current roll (it's been claimed)
+    window.currentRoll = null;
+    
+    // Reset rolling state
+    isRolling = false;
+    
+    // Recreate spinning number display
+    createSpinningNumberDisplay();
+    
+    showToast('Ready to roll again!', 'success');
 }
+
+// Back to Purchase
+function backToPurchase() {
+    closePostClaimModal();
+    
+    document.getElementById('rollSection').style.display = 'none';
+    document.getElementById('purchaseSection').style.display = 'block';
+    document.getElementById('purchaseSection').scrollIntoView({ behavior: 'smooth' });
+    
+    // Reset rolling state
+    isRolling = false;
+    
+    showToast('Purchase more rolls to continue!', 'info');
+}
+
+// Close Post-Claim Modal
+function closePostClaimModal() {
+    const modal = document.querySelector('.mobile-modal');
+    if (modal) modal.remove();
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Winions Dice Roller initialized!');
+});
