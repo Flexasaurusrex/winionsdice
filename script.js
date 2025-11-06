@@ -263,22 +263,67 @@ async function loadUserRolls() {
                     font-weight: bold;
                     transition: all 0.3s ease;
                 `;
-                emergencyButton.onclick = () => {
-                    if (confirm('⚠️ EMERGENCY CLEAR\n\nThis will clear your pending claim if you\'re stuck.\n\nOnly use this if the house you rolled into has no NFTs left!\n\nAre you sure?')) {
-                        console.log('🆘 User activated emergency clear');
-                        clearPendingClaim();
-                        currentSchool = null;
-                        currentRollTotal = 0;
-                        currentHouseName = '';
-                        showToast('✅ Pending claim cleared! You can roll again.', 'success');
-                        loadUserRolls();
+                emergencyButton.onclick = async () => {
+                    console.log('🆘 User clicked emergency clear button');
+                    
+                    // CRITICAL: Check blockchain FIRST before allowing clear
+                    emergencyButton.disabled = true;
+                    emergencyButton.textContent = 'Checking blockchain...';
+                    
+                    try {
+                        console.log(`Checking if ${currentHouseName} actually has 0 NFTs...`);
+                        const count = await distributionContract.getHouseInventoryCount(currentHouseName);
+                        const countNum = Number(count.toString());
+                        
+                        console.log(`${currentHouseName} has ${countNum} NFTs`);
+                        
+                        if (countNum > 0) {
+                            // HOUSE HAS NFTS - DENY EMERGENCY CLEAR
+                            console.error('🚫 EMERGENCY CLEAR DENIED - House has NFTs!');
+                            console.error(`User tried to exploit emergency clear to reroll!`);
+                            console.error(`House "${currentHouseName}" has ${countNum} NFTs available`);
+                            
+                            showToast('🚫 EMERGENCY CLEAR DENIED!', 'error');
+                            showToast(`${currentHouseName} still has ${countNum} NFT${countNum > 1 ? 's' : ''} available!`, 'warning');
+                            showToast('You MUST claim your Winion. You cannot bypass this!', 'error');
+                            
+                            emergencyButton.disabled = false;
+                            emergencyButton.textContent = '🆘 EMERGENCY: Clear Stuck Claim';
+                            return;
+                        }
+                        
+                        // HOUSE IS EMPTY - ALLOW EMERGENCY CLEAR
+                        console.log('✅ House is empty - emergency clear allowed');
+                        
+                        if (confirm('⚠️ EMERGENCY CLEAR CONFIRMED\n\nThe blockchain shows this house has no NFTs left.\n\nYour pending claim will be cleared.\n\nContinue?')) {
+                            console.log('🆘 Emergency clear confirmed by user');
+                            clearPendingClaim();
+                            currentSchool = null;
+                            currentRollTotal = 0;
+                            currentHouseName = '';
+                            showToast('✅ Pending claim cleared! House was empty.', 'success');
+                            loadUserRolls();
+                        } else {
+                            emergencyButton.disabled = false;
+                            emergencyButton.textContent = '🆘 EMERGENCY: Clear Stuck Claim';
+                        }
+                        
+                    } catch (error) {
+                        console.error('Error checking house inventory:', error);
+                        showToast('Error checking blockchain. Please try again.', 'error');
+                        emergencyButton.disabled = false;
+                        emergencyButton.textContent = '🆘 EMERGENCY: Clear Stuck Claim';
                     }
                 };
                 emergencyButton.onmouseover = function() {
-                    this.style.background = 'rgba(255, 100, 0, 0.5)';
+                    if (!this.disabled) {
+                        this.style.background = 'rgba(255, 100, 0, 0.5)';
+                    }
                 };
                 emergencyButton.onmouseout = function() {
-                    this.style.background = 'rgba(255, 100, 0, 0.3)';
+                    if (!this.disabled) {
+                        this.style.background = 'rgba(255, 100, 0, 0.3)';
+                    }
                 };
                 
                 // Insert after continue button
