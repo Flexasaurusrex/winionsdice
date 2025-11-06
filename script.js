@@ -240,15 +240,17 @@ async function loadUserRolls() {
         const continueButton = document.getElementById('continueToSchool');
         if (hasPendingClaim) {
             continueButton.textContent = '🚫 CLAIM YOUR WINION FIRST';
-            continueButton.style.background = 'rgba(255, 0, 0, 0.3)';
+            continueButton.style.background = 'linear-gradient(135deg, #ff4444 0%, #cc0000 100%)';
             continueButton.style.borderColor = '#ff0000';
-            continueButton.style.cursor = 'not-allowed';
-            console.log('⚠️ User has pending claim - Continue button locked');
+            continueButton.style.cursor = 'pointer'; // Make it clickable!
+            continueButton.style.animation = 'pulse 1.5s ease-in-out infinite';
+            console.log('⚠️ User has pending claim - Continue button will restore claim screen');
         } else {
             continueButton.textContent = 'CONTINUE TO ROLL →';
             continueButton.style.background = '';
             continueButton.style.borderColor = '';
             continueButton.style.cursor = 'pointer';
+            continueButton.style.animation = '';
             console.log('✅ No pending claim - Continue button unlocked');
         }
         
@@ -302,11 +304,18 @@ async function purchaseRolls(numberOfRolls) {
 }
 
 async function handleContinueToSchool() {
-    // CRITICAL: Block if there's an unclaimed Winion
+    // CRITICAL: If there's a pending claim, restore them to the claim screen!
     if (hasPendingClaim) {
-        showToast('⚠️ YOU CANNOT ROLL AGAIN UNTIL YOU CLAIM YOUR PREVIOUS WINION!', 'error');
-        showToast('Go back and click "CLAIM YOUR WINION" to continue.', 'warning');
-        return; // HARD BLOCK - Cannot proceed
+        console.log('🔒 User has pending claim - restoring to claim screen...');
+        console.log('Pending claim details:', {
+            rollTotal: currentRollTotal,
+            houseName: currentHouseName,
+            school: currentSchool
+        });
+        
+        // Restore them to the dice screen with the claim button
+        restorePendingClaimScreen();
+        return; // HARD BLOCK - but we restore them to claim screen
     }
     
     // Check if user has rolls BEFORE allowing them to continue
@@ -328,6 +337,85 @@ async function handleContinueToSchool() {
         console.error('Error checking rolls:', error);
         showToast('Error checking your rolls. Please try again.', 'error');
     }
+}
+
+// Restore user to the dice screen to claim their pending Winion
+async function restorePendingClaimScreen() {
+    console.log('🔄 Restoring pending claim screen...');
+    
+    // Hide rolls screen
+    document.getElementById('rollsScreen').style.display = 'none';
+    
+    // Show dice screen
+    document.getElementById('diceScreen').style.display = 'block';
+    document.getElementById('chosenSchool').textContent = (currentSchool || 'UNKNOWN').toUpperCase();
+    
+    // Set school color
+    const schoolColors = {
+        anarchy: '#ff6b35',
+        mischief: '#4a90e2',
+        luck: '#50c878'
+    };
+    document.body.style.setProperty('--school-color', schoolColors[currentSchool] || '#ff1a1a');
+    
+    // Recreate the dice display
+    createDiceDisplay();
+    const spinningNumber = document.getElementById('spinningNumber');
+    if (spinningNumber) {
+        spinningNumber.textContent = currentRollTotal;
+        spinningNumber.classList.remove('rolling', 'landing');
+    }
+    
+    // Show the total
+    document.getElementById('totalValue').textContent = currentRollTotal;
+    
+    // Disable roll button
+    document.getElementById('rollButton').disabled = true;
+    document.getElementById('rollButton').textContent = '⚠️ CLAIM YOUR WINION FIRST';
+    
+    // Re-fetch house inventory to ensure we have current data
+    console.log('Checking available houses...');
+    await checkAvailableHouses();
+    
+    // Show the house result with claim button
+    document.getElementById('rolledHouseName').textContent = currentHouseName;
+    document.getElementById('houseResult').style.display = 'block';
+    
+    // Show remaining NFTs in house
+    if (availableHouses[currentHouseName]) {
+        const remaining = availableHouses[currentHouseName].count;
+        const countDisplay = document.createElement('p');
+        countDisplay.style.color = '#00ff00';
+        countDisplay.style.marginTop = '10px';
+        countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining in this house`;
+        countDisplay.className = 'nft-count';
+        
+        const houseResult = document.getElementById('houseResult');
+        const existingCount = houseResult.querySelector('.nft-count');
+        if (existingCount) existingCount.remove();
+        houseResult.appendChild(countDisplay);
+    }
+    
+    // Show warning message
+    const warningMsg = document.createElement('p');
+    warningMsg.className = 'claim-warning';
+    warningMsg.style.color = '#ffcc00';
+    warningMsg.style.marginTop = '15px';
+    warningMsg.style.fontWeight = 'bold';
+    warningMsg.style.animation = 'pulse 1.5s ease-in-out infinite';
+    warningMsg.textContent = '⚠️ Complete your claim from before you refreshed!';
+    
+    const houseResult = document.getElementById('houseResult');
+    const existingWarning = houseResult.querySelector('.claim-warning');
+    if (existingWarning) existingWarning.remove();
+    houseResult.appendChild(warningMsg);
+    
+    // Make sure claim button is enabled
+    document.getElementById('claimButton').disabled = false;
+    document.getElementById('claimButton').textContent = 'CLAIM YOUR WINION';
+    
+    showToast('✅ Restored your pending claim - click CLAIM YOUR WINION!', 'success');
+    console.log('✅ User restored to claim screen');
 }
 
 function showSchoolScreen() {
