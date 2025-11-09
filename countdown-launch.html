@@ -235,14 +235,98 @@
         /* Timezone Table Styles */
         .timezone-section {
             margin-top: 60px;
-            padding: 30px;
+        }
+
+        .timezone-toggle {
+            width: 100%;
+            padding: 20px 30px;
             background: rgba(0, 0, 0, 0.8);
             border: 2px solid #ff1a1a;
             border-radius: 10px;
+            color: #ff1a1a;
+            font-family: 'Arial Black', sans-serif;
+            font-size: clamp(16px, 3vw, 22px);
+            letter-spacing: 3px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
             box-shadow: 
                 0 0 20px rgba(255, 26, 26, 0.3),
                 inset 0 0 20px rgba(255, 26, 26, 0.1);
+            position: relative;
             animation: fadeIn 1.5s ease-out 0.5s backwards;
+        }
+
+        .timezone-toggle:hover {
+            background: rgba(255, 26, 26, 0.2);
+            box-shadow: 
+                0 0 30px rgba(255, 26, 26, 0.6),
+                inset 0 0 30px rgba(255, 26, 26, 0.2);
+            transform: translateY(-2px);
+            animation: button-glitch 0.3s ease;
+        }
+
+        @keyframes button-glitch {
+            0%, 100% { transform: translateY(-2px) skew(0deg); }
+            25% { transform: translateY(-2px) skew(-2deg, 1deg); }
+            50% { transform: translateY(-2px) skew(0deg); }
+            75% { transform: translateY(-2px) skew(2deg, -1deg); }
+        }
+
+        .timezone-toggle:active {
+            transform: translateY(0);
+        }
+
+        .timezone-toggle::after {
+            content: '▼';
+            position: absolute;
+            right: 30px;
+            transition: transform 0.3s ease;
+        }
+
+        .timezone-toggle.active::after {
+            transform: rotate(180deg);
+        }
+
+        .timezone-content {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: max-height 0.5s ease-out, opacity 0.3s ease-out, padding 0.5s ease-out;
+            padding: 0 30px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 0 solid #ff1a1a;
+            border-radius: 0 0 10px 10px;
+            margin-top: -10px;
+        }
+
+        .timezone-content.active {
+            max-height: 2000px;
+            opacity: 1;
+            border-width: 0 2px 2px 2px;
+            padding: 30px;
+            margin-top: 0;
+            box-shadow: 
+                0 0 20px rgba(255, 26, 26, 0.3),
+                inset 0 0 20px rgba(255, 26, 26, 0.1);
+        }
+
+        /* Hide timezone title until expanded */
+        .timezone-content .timezone-title {
+            display: none;
+        }
+
+        .timezone-content.active .timezone-title {
+            display: block;
+        }
+
+        /* Hide timezone grid until expanded */
+        .timezone-content .timezone-grid {
+            display: none;
+        }
+
+        .timezone-content.active .timezone-grid {
+            display: grid;
         }
 
         .timezone-title {
@@ -252,6 +336,7 @@
             text-transform: uppercase;
             opacity: 0.9;
             animation: flicker 4s infinite;
+            text-align: center;
         }
 
         .timezone-grid {
@@ -480,8 +565,21 @@
             h1 {
                 letter-spacing: 4px;
             }
-            .timezone-section {
+            .timezone-toggle {
+                padding: 15px 20px;
+                font-size: clamp(14px, 3vw, 18px);
+                letter-spacing: 2px;
+            }
+            .timezone-toggle::after {
+                right: 20px;
+            }
+            .timezone-content {
+                padding: 0 15px;
+                opacity: 0;
+            }
+            .timezone-content.active {
                 padding: 20px 15px;
+                opacity: 1;
             }
             .timezone-grid {
                 grid-template-columns: 1fr;
@@ -523,8 +621,13 @@
 
         <!-- Timezone Conversion Table -->
         <div class="timezone-section">
-            <div class="timezone-title">🌍 LAUNCH TIME BY TIMEZONE</div>
-            <div class="timezone-grid" id="timezoneGrid"></div>
+            <button class="timezone-toggle" id="timezoneToggle">
+                🌍 CLICK HERE FOR DIFFERENT TIME ZONES
+            </button>
+            <div class="timezone-content" id="timezoneContent">
+                <div class="timezone-title">LAUNCH TIME BY TIMEZONE</div>
+                <div class="timezone-grid" id="timezoneGrid"></div>
+            </div>
         </div>
     </div>
 
@@ -600,6 +703,15 @@
         }
 
         updateTimezones();
+
+        // Timezone accordion toggle
+        document.getElementById('timezoneToggle').addEventListener('click', function() {
+            const content = document.getElementById('timezoneContent');
+            const button = document.getElementById('timezoneToggle');
+            
+            content.classList.toggle('active');
+            button.classList.toggle('active');
+        });
 
         function updateCountdown() {
             const now = new Date().getTime();
