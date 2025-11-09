@@ -36,18 +36,19 @@
             background: #000;
             color: #ff1a1a;
             font-family: 'Arial Black', sans-serif;
-            overflow: hidden;
-            height: 100vh;
+            overflow-x: hidden;
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
+            padding: 40px 20px;
         }
 
         /* Scanlines effect */
         body::before {
             content: '';
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
@@ -67,7 +68,7 @@
         /* VHS noise overlay */
         body::after {
             content: '';
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
@@ -83,6 +84,8 @@
             z-index: 10;
             position: relative;
             animation: fadeIn 1s ease-out, container-breathe 8s ease-in-out infinite;
+            max-width: 1200px;
+            width: 100%;
         }
 
         /* Container breathing/warping animation */
@@ -182,9 +185,7 @@
             font-size: clamp(60px, 12vw, 120px);
             font-weight: 900;
             line-height: 1;
-            /* White stroke + red glow */
             text-shadow: 
-                /* White stroke (8-point) */
                 -2px -2px 0 #fff,
                 2px -2px 0 #fff,
                 -2px 2px 0 #fff,
@@ -193,7 +194,6 @@
                 3px 0 0 #fff,
                 0 -3px 0 #fff,
                 0 3px 0 #fff,
-                /* Red glow on top */
                 0 0 10px #ff1a1a,
                 0 0 20px #ff1a1a,
                 0 0 30px #ff1a1a,
@@ -203,7 +203,6 @@
             position: relative;
         }
 
-        /* Digital glitch effect on numbers */
         .time-value::after {
             content: attr(data-value);
             position: absolute;
@@ -225,14 +224,81 @@
         .launch-message {
             font-size: clamp(18px, 3vw, 28px);
             letter-spacing: 3px;
-            margin-top: 60px;
+            margin-top: 40px;
+            margin-bottom: 60px;
             animation: flash 1s infinite;
             text-shadow: 
                 0 0 10px #ff1a1a,
                 0 0 20px #ff1a1a;
         }
 
-        /* Background chaos effect */
+        /* Timezone Table Styles */
+        .timezone-section {
+            margin-top: 60px;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #ff1a1a;
+            border-radius: 10px;
+            box-shadow: 
+                0 0 20px rgba(255, 26, 26, 0.3),
+                inset 0 0 20px rgba(255, 26, 26, 0.1);
+            animation: fadeIn 1.5s ease-out 0.5s backwards;
+        }
+
+        .timezone-title {
+            font-size: clamp(20px, 4vw, 32px);
+            letter-spacing: 3px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            opacity: 0.9;
+            animation: flicker 4s infinite;
+        }
+
+        .timezone-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .timezone-item {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #ff1a1a;
+            padding: 20px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 26, 26, 0.2);
+        }
+
+        .timezone-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 20px rgba(255, 26, 26, 0.5);
+            border-color: #fff;
+        }
+
+        .timezone-name {
+            font-size: clamp(14px, 2.5vw, 18px);
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #fff;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px #ff1a1a;
+        }
+
+        .timezone-time {
+            font-size: clamp(16px, 3vw, 24px);
+            margin-bottom: 5px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+        }
+
+        .timezone-date {
+            font-size: clamp(12px, 2vw, 14px);
+            opacity: 0.7;
+            font-family: 'Courier New', monospace;
+        }
+
         .chaos-bg {
             position: fixed;
             top: 0;
@@ -254,7 +320,7 @@
             animation: chaos-move 3s linear infinite;
         }
 
-        /* Glitch animations */
+        /* Animations */
         @keyframes glitch-anim {
             0% { clip: rect(42px, 9999px, 44px, 0); }
             5% { clip: rect(12px, 9999px, 59px, 0); }
@@ -305,21 +371,10 @@
 
         @keyframes glitch-skew {
             0% { transform: skew(0deg); }
-            9% { transform: skew(0deg); }
             10% { transform: skew(0deg); }
             11% { transform: skew(-5deg, 3deg) scaleX(1.05) scaleY(0.95); }
             12% { transform: skew(4deg, -2deg) scaleX(0.98) scaleY(1.03); }
             13% { transform: skew(0deg); }
-            20% { transform: skew(0deg); }
-            21% { transform: skew(8deg, -4deg) scaleX(1.02) scaleY(0.97); }
-            22% { transform: skew(-3deg, 5deg) scaleX(0.96) scaleY(1.04); }
-            23% { transform: skew(0deg); }
-            45% { transform: skew(0deg); }
-            46% { transform: skew(-6deg, 2deg) scaleX(1.03) scaleY(0.98); }
-            47% { transform: skew(0deg); }
-            70% { transform: skew(0deg); }
-            71% { transform: skew(4deg, -6deg) scaleX(0.97) scaleY(1.05); }
-            72% { transform: skew(0deg); }
             100% { transform: skew(0deg); }
         }
 
@@ -358,85 +413,17 @@
         }
 
         @keyframes distort-skew {
-            0% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
-            10% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
-            11% { 
-                transform: skew(-5deg, 2deg) scale(1.02, 0.98);
-            }
-            12% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
-            25% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
-            26% { 
-                transform: skew(3deg, -4deg) scale(0.98, 1.03);
-            }
-            27% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
-            45% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
-            46% { 
-                transform: skew(-2deg, 5deg) scale(1.01, 0.97);
-            }
-            47% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
-            70% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
-            71% { 
-                transform: skew(4deg, -3deg) scale(0.99, 1.02);
-            }
-            72% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
-            100% { 
-                transform: skew(0deg, 0deg) scale(1);
-            }
+            0%, 100% { transform: skew(0deg, 0deg) scale(1); }
+            11% { transform: skew(-5deg, 2deg) scale(1.02, 0.98); }
+            12% { transform: skew(0deg, 0deg) scale(1); }
         }
 
         @keyframes digital-glitch {
-            0%, 88% { 
-                opacity: 0;
-                transform: translate(0, 0) skew(0deg);
-            }
-            89% { 
-                opacity: 1; 
-                transform: translate(-3px, 3px) skew(-10deg, 5deg) scaleY(1.2);
-                color: #00ffff;
-                filter: blur(1px);
-            }
-            90% { 
-                opacity: 0;
-                transform: translate(0, 0) skew(0deg);
-            }
-            91% { 
-                opacity: 1; 
-                transform: translate(4px, -4px) skew(8deg, -6deg) scaleX(1.15);
-                color: #ff00ff;
-                filter: blur(1px);
-            }
-            92% { 
-                opacity: 0;
-                transform: translate(0, 0) skew(0deg);
-            }
-            93% { 
-                opacity: 1; 
-                transform: translate(-2px, 2px) skew(-6deg, 8deg) scale(1.1, 0.9);
-                color: #00ff00;
-                filter: blur(2px);
-            }
-            94%, 100% { 
-                opacity: 0;
-                transform: translate(0, 0) skew(0deg);
-            }
+            0%, 88% { opacity: 0; }
+            89% { opacity: 1; color: #00ffff; filter: blur(1px); }
+            90% { opacity: 0; }
+            91% { opacity: 1; color: #ff00ff; }
+            92%, 100% { opacity: 0; }
         }
 
         @keyframes flicker {
@@ -444,8 +431,6 @@
             50% { opacity: 1; }
             51% { opacity: 0.5; }
             52% { opacity: 1; }
-            53% { opacity: 0.7; }
-            54% { opacity: 1; }
         }
 
         @keyframes flash {
@@ -460,150 +445,52 @@
 
         @keyframes noise {
             0%, 100% { transform: translate(0, 0); }
-            10% { transform: translate(-5%, -5%); }
-            20% { transform: translate(-10%, 5%); }
-            30% { transform: translate(5%, -10%); }
-            40% { transform: translate(-5%, 15%); }
             50% { transform: translate(-10%, 5%); }
-            60% { transform: translate(15%, 0); }
-            70% { transform: translate(0, 10%); }
-            80% { transform: translate(-15%, 0); }
-            90% { transform: translate(10%, 5%); }
         }
 
         @keyframes chaos-move {
-            0% { 
-                left: -100%;
-                top: 20%;
-            }
-            100% { 
-                left: 100%;
-                top: 80%;
-            }
+            0% { left: -100%; top: 20%; }
+            100% { left: 100%; top: 80%; }
         }
 
         @keyframes glitch-text {
-            0%, 85% { 
-                transform: translate(0) skew(0deg);
-            }
-            86% { 
-                transform: translate(-3px, 3px) skew(-8deg, 2deg) scaleY(1.1);
-            }
-            87% { 
-                transform: translate(0) skew(0deg) scaleY(1);
-            }
-            88% { 
-                transform: translate(3px, -3px) skew(5deg, -3deg) scaleX(1.05);
-            }
-            89% { 
-                transform: translate(0) skew(0deg) scaleX(1);
-            }
-            92% { 
-                transform: translate(-2px, 2px) skew(-4deg, 6deg) scale(1.02, 0.98);
-            }
-            93% { 
-                transform: translate(0) skew(0deg) scale(1);
-            }
-            95% { 
-                transform: translate(2px, -1px) skew(6deg, -2deg) scaleY(0.95);
-            }
-            96% { 
-                transform: translate(0) skew(0deg) scaleY(1);
-            }
+            0%, 85% { transform: translate(0) skew(0deg); }
+            86% { transform: translate(-3px, 3px) skew(-8deg, 2deg); }
+            87% { transform: translate(0) skew(0deg); }
         }
 
         @keyframes title-distort {
-            0%, 100% { 
-                transform: perspective(500px) rotateX(0deg) rotateY(0deg);
-            }
-            15% { 
-                transform: perspective(500px) rotateX(0deg) rotateY(0deg);
-            }
-            16% { 
-                transform: perspective(500px) rotateX(2deg) rotateY(-3deg) skew(-2deg);
-            }
-            17% { 
-                transform: perspective(500px) rotateX(0deg) rotateY(0deg);
-            }
-            40% { 
-                transform: perspective(500px) rotateX(0deg) rotateY(0deg);
-            }
-            41% { 
-                transform: perspective(500px) rotateX(-3deg) rotateY(4deg) skew(3deg);
-            }
-            42% { 
-                transform: perspective(500px) rotateX(0deg) rotateY(0deg);
-            }
-            65% { 
-                transform: perspective(500px) rotateX(0deg) rotateY(0deg);
-            }
-            66% { 
-                transform: perspective(500px) rotateX(4deg) rotateY(-2deg) skew(-3deg);
-            }
-            67% { 
-                transform: perspective(500px) rotateX(0deg) rotateY(0deg);
-            }
+            0%, 100% { transform: perspective(500px) rotateX(0deg) rotateY(0deg); }
+            16% { transform: perspective(500px) rotateX(2deg) rotateY(-3deg); }
+            17% { transform: perspective(500px) rotateX(0deg) rotateY(0deg); }
         }
 
-        /* RGB split effect */
-        @keyframes rgb-split {
-            0%, 90% { 
-                text-shadow: 
-                    0 0 20px #ff1a1a;
-            }
-            91% { 
-                text-shadow: 
-                    -3px 0 0 #00ffff,
-                    3px 0 0 #ff00ff;
-            }
-            92% { 
-                text-shadow: 
-                    0 0 20px #ff1a1a;
-            }
-            93% { 
-                text-shadow: 
-                    2px 0 0 #00ffff,
-                    -2px 0 0 #ff00ff;
-            }
-            94%, 100% { 
-                text-shadow: 
-                    0 0 20px #ff1a1a;
-            }
-        }
-
-        /* Mobile responsiveness */
-        @media (max-width: 768px) {
-            .countdown {
-                gap: 20px;
-            }
-            
-            h1 {
-                letter-spacing: 4px;
-            }
-            
-            .subtitle {
-                letter-spacing: 2px;
-            }
-            
-            .launch-message {
-                letter-spacing: 2px;
-                padding: 0 20px;
-            }
-        }
-
-        /* Loading animation */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .container {
-            animation: fadeIn 1s ease-out;
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 10px;
+            }
+            .countdown {
+                gap: 20px;
+            }
+            h1 {
+                letter-spacing: 4px;
+            }
+            .timezone-section {
+                padding: 20px 15px;
+            }
+            .timezone-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Chaos background -->
     <div class="chaos-bg" id="chaosBg"></div>
 
     <div class="container">
@@ -633,10 +520,16 @@
         </div>
         
         <div class="launch-message">LAUNCHING 11/11 AT 11:11 EST</div>
+
+        <!-- Timezone Conversion Table -->
+        <div class="timezone-section">
+            <div class="timezone-title">🌍 LAUNCH TIME BY TIMEZONE</div>
+            <div class="timezone-grid" id="timezoneGrid"></div>
+        </div>
     </div>
 
     <script>
-        // Generate chaos lines in background
+        // Generate chaos lines
         function generateChaosLines() {
             const chaosBg = document.getElementById('chaosBg');
             for (let i = 0; i < 20; i++) {
@@ -649,175 +542,118 @@
                 chaosBg.appendChild(line);
             }
         }
-
         generateChaosLines();
 
         // Launch date: November 11, 2025 at 11:11 AM EST
         const launchDate = new Date('2025-11-11T11:11:00-05:00').getTime();
 
+        // Timezone configurations
+        const timezones = [
+            { name: 'UTC', offset: 0, abbr: 'UTC' },
+            { name: 'New York (EST)', offset: -5, abbr: 'EST' },
+            { name: 'Los Angeles (PST)', offset: -8, abbr: 'PST' },
+            { name: 'London (GMT)', offset: 0, abbr: 'GMT' },
+            { name: 'Paris (CET)', offset: 1, abbr: 'CET' },
+            { name: 'Tokyo (JST)', offset: 9, abbr: 'JST' },
+            { name: 'Sydney (AEST)', offset: 11, abbr: 'AEST' },
+            { name: 'Dubai (GST)', offset: 4, abbr: 'GST' },
+            { name: 'São Paulo (BRT)', offset: -3, abbr: 'BRT' },
+            { name: 'Singapore (SGT)', offset: 8, abbr: 'SGT' }
+        ];
+
+        // Initialize timezone displays
+        function initializeTimezones() {
+            const grid = document.getElementById('timezoneGrid');
+            timezones.forEach((tz, index) => {
+                const item = document.createElement('div');
+                item.className = 'timezone-item';
+                item.innerHTML = `
+                    <div class="timezone-name">${tz.name}</div>
+                    <div class="timezone-time" id="tz-time-${index}">--:--:--</div>
+                    <div class="timezone-date" id="tz-date-${index}">-- --- ----</div>
+                `;
+                grid.appendChild(item);
+            });
+        }
+
+        initializeTimezones();
+
+        // Update timezone displays
+        function updateTimezones() {
+            const launchDateUTC = new Date('2025-11-11T16:11:00Z'); // 11:11 EST = 16:11 UTC
+            
+            timezones.forEach((tz, index) => {
+                const tzDate = new Date(launchDateUTC.getTime() + (tz.offset * 60 * 60 * 1000));
+                
+                const hours = tzDate.getUTCHours().toString().padStart(2, '0');
+                const minutes = tzDate.getUTCMinutes().toString().padStart(2, '0');
+                const seconds = tzDate.getUTCSeconds().toString().padStart(2, '0');
+                
+                const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                const day = tzDate.getUTCDate();
+                const month = months[tzDate.getUTCMonth()];
+                const year = tzDate.getUTCFullYear();
+                
+                document.getElementById(`tz-time-${index}`).textContent = `${hours}:${minutes}:${seconds} ${tz.abbr}`;
+                document.getElementById(`tz-date-${index}`).textContent = `${day} ${month} ${year}`;
+            });
+        }
+
+        updateTimezones();
+
         function updateCountdown() {
             const now = new Date().getTime();
             const distance = launchDate - now;
 
-            // Check if launch time has passed
             if (distance < 0) {
-                // LAUNCH! Show button instead of auto-redirect
                 document.body.innerHTML = `
-                    <style>
-                        .launch-container {
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            height: 100vh;
-                            flex-direction: column;
-                            text-align: center;
-                        }
-                        .launch-title {
-                            font-size: clamp(50px, 10vw, 100px);
-                            margin-bottom: 40px;
-                            animation: glow-pulse 1.5s infinite;
-                            text-shadow: 
-                                -2px -2px 0 #fff,
-                                2px -2px 0 #fff,
-                                -2px 2px 0 #fff,
-                                2px 2px 0 #fff,
-                                0 0 20px #ff1a1a,
-                                0 0 40px #ff1a1a,
-                                0 0 60px #ff1a1a;
-                        }
-                        .launch-subtitle {
-                            font-size: clamp(18px, 4vw, 28px);
-                            margin-bottom: 60px;
-                            animation: flicker 2s infinite;
-                            letter-spacing: 3px;
-                        }
-                        .enter-button {
-                            font-family: 'Arial Black', sans-serif;
-                            font-size: clamp(24px, 5vw, 40px);
-                            padding: 25px 60px;
-                            background: linear-gradient(135deg, #ff1a1a 0%, #cc0000 100%);
-                            border: 4px solid #fff;
-                            color: #fff;
-                            text-transform: uppercase;
-                            letter-spacing: 4px;
-                            cursor: pointer;
-                            text-shadow: 
-                                0 0 10px #000,
-                                0 0 20px #ff1a1a;
-                            box-shadow: 
-                                0 0 20px #ff1a1a,
-                                0 0 40px #ff1a1a,
-                                0 0 60px #ff1a1a,
-                                inset 0 0 20px rgba(255, 255, 255, 0.2);
-                            animation: button-pulse 2s ease-in-out infinite, glitch-skew 3s infinite;
-                            transition: all 0.3s ease;
-                            position: relative;
-                            overflow: hidden;
-                        }
-                        .enter-button:hover {
-                            transform: scale(1.05);
-                            box-shadow: 
-                                0 0 30px #ff1a1a,
-                                0 0 60px #ff1a1a,
-                                0 0 90px #ff1a1a,
-                                inset 0 0 30px rgba(255, 255, 255, 0.3);
-                        }
-                        .enter-button:active {
-                            transform: scale(0.95);
-                        }
-                        .enter-button::before {
-                            content: '';
-                            position: absolute;
-                            top: -50%;
-                            left: -50%;
-                            width: 200%;
-                            height: 200%;
-                            background: linear-gradient(
-                                45deg,
-                                transparent,
-                                rgba(255, 255, 255, 0.1),
-                                transparent
-                            );
-                            animation: shine 3s infinite;
-                        }
-                        @keyframes button-pulse {
-                            0%, 100% {
-                                box-shadow: 
-                                    0 0 20px #ff1a1a,
-                                    0 0 40px #ff1a1a,
-                                    0 0 60px #ff1a1a,
-                                    inset 0 0 20px rgba(255, 255, 255, 0.2);
-                            }
-                            50% {
-                                box-shadow: 
-                                    0 0 30px #ff1a1a,
-                                    0 0 60px #ff1a1a,
-                                    0 0 90px #ff1a1a,
-                                    0 0 120px #ff1a1a,
-                                    inset 0 0 30px rgba(255, 255, 255, 0.3);
-                            }
-                        }
-                        @keyframes shine {
-                            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-                            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
-                        }
-                    </style>
-                    <div class="launch-container">
-                        <h1 class="launch-title">🎲 IT'S TIME 🎲</h1>
-                        <p class="launch-subtitle">THE WINIONS AWAIT</p>
-                        <button class="enter-button" onclick="window.location.href='index.html'">
+                    <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;text-align:center;">
+                        <h1 style="font-size:clamp(50px,10vw,100px);margin-bottom:40px;">🎲 IT'S TIME 🎲</h1>
+                        <p style="font-size:clamp(18px,4vw,28px);margin-bottom:60px;">THE WINIONS AWAIT</p>
+                        <button onclick="window.location.href='index.html'" style="font-family:'Arial Black',sans-serif;font-size:clamp(24px,5vw,40px);padding:25px 60px;background:linear-gradient(135deg,#ff1a1a 0%,#cc0000 100%);border:4px solid #fff;color:#fff;cursor:pointer;">
                             ENTER THE CHAOS
                         </button>
                     </div>
                 `;
-                
                 return;
             }
 
-            // Calculate time units
             const days = Math.floor(distance / (1000 * 60 * 60 * 24));
             const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-            // Format with leading zeros
             const formatNumber = (num) => num.toString().padStart(2, '0');
 
-            // Update display
             const daysEl = document.getElementById('days');
             const hoursEl = document.getElementById('hours');
             const minutesEl = document.getElementById('minutes');
             const secondsEl = document.getElementById('seconds');
 
-            daysEl.textContent = formatNumber(days);
-            daysEl.setAttribute('data-value', formatNumber(days));
-            
-            hoursEl.textContent = formatNumber(hours);
-            hoursEl.setAttribute('data-value', formatNumber(hours));
-            
-            minutesEl.textContent = formatNumber(minutes);
-            minutesEl.setAttribute('data-value', formatNumber(minutes));
-            
-            secondsEl.textContent = formatNumber(seconds);
-            secondsEl.setAttribute('data-value', formatNumber(seconds));
-
-            // Add extra glitch effect when getting close (under 1 hour)
-            if (distance < 3600000) { // 1 hour in milliseconds
-                document.body.style.animation = 'glitch-text 0.5s infinite';
+            if (daysEl) {
+                daysEl.textContent = formatNumber(days);
+                daysEl.setAttribute('data-value', formatNumber(days));
+                
+                hoursEl.textContent = formatNumber(hours);
+                hoursEl.setAttribute('data-value', formatNumber(hours));
+                
+                minutesEl.textContent = formatNumber(minutes);
+                minutesEl.setAttribute('data-value', formatNumber(minutes));
+                
+                secondsEl.textContent = formatNumber(seconds);
+                secondsEl.setAttribute('data-value', formatNumber(seconds));
             }
 
-            // Add intense effects in final minute
-            if (distance < 60000) { // 1 minute
+            if (distance < 60000) {
                 document.querySelector('.launch-message').style.animation = 'flash 0.2s infinite';
                 document.querySelector('.subtitle').textContent = '⚠️ FINAL COUNTDOWN ⚠️';
             }
         }
 
-        // Update countdown every second
         updateCountdown();
         setInterval(updateCountdown, 1000);
 
-        // Random glitch effect on numbers
+        // Random glitch effects
         setInterval(() => {
             if (Math.random() > 0.7) {
                 const values = document.querySelectorAll('.time-value');
@@ -828,18 +664,6 @@
                 }, 50);
             }
         }, 2000);
-
-        // Screen shake effect occasionally with more intense warping
-        setInterval(() => {
-            if (Math.random() > 0.9) {
-                document.body.style.animation = 'glitch-skew 0.15s';
-                document.body.style.transform = 'skew(-3deg, 2deg) scale(1.01, 0.99)';
-                setTimeout(() => {
-                    document.body.style.animation = '';
-                    document.body.style.transform = '';
-                }, 150);
-            }
-        }, 3000);
     </script>
 </body>
 </html>
