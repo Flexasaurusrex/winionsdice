@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vaporwave Nature - Art Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background: linear-gradient(180deg, #1a0033 0%, #330066 50%, #0d0d1a 100%);
+            color: #fff;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            background: linear-gradient(90deg, #FF6EFF, #00FFFF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        #canvas-container {
+            width: 800px;
+            max-width: 100%;
+            aspect-ratio: 1;
+            margin: 0 auto;
+            border: 2px solid #01CDFE;
+            box-shadow: 0 0 30px rgba(1, 205, 254, 0.5);
+        }
+        
+        #canvas-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        button {
+            background: linear-gradient(90deg, #FF6EFF, #01CDFE);
+            border: none;
+            color: #000;
+            padding: 15px 40px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 110, 255, 0.5);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(255, 110, 255, 0.8);
+        }
+        
+        #status {
+            text-align: center;
+            margin-top: 20px;
+            color: #01CDFE;
+        }
+    </style>
+</head>
+<body>
+    <h1>VAPORWAVE NATURE</h1>
+    <div id="status">Loading...</div>
+    <div id="canvas-container"></div>
+    <div class="controls">
+        <button onclick="window.regenerateArt ? window.regenerateArt() : alert('Art engine not loaded yet')">
+            ⟳ Generate New
+        </button>
+    </div>
+    
+    <script src="vaporwave_nature.js"></script>
+    <script>
+        setTimeout(() => {
+            if (typeof window.regenerateArt === 'function') {
+                document.getElementById('status').textContent = 'Ready! Click to generate new variations.';
+            } else {
+                document.getElementById('status').textContent = 'Error: Art engine failed to load.';
+                console.error("regenerateArt function not available");
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
