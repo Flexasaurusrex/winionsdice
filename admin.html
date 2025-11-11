@@ -337,6 +337,34 @@
             background: rgba(255, 26, 26, 0.1);
         }
 
+        /* Import Progress Styles */
+        .import-progress {
+            background: rgba(74, 144, 226, 0.1);
+            border: 2px solid #4a90e2;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            background: #1a1a1a;
+            height: 30px;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #00ff00, #4a90e2);
+            height: 100%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: bold;
+        }
+
         @media (max-width: 768px) {
             h1 {
                 font-size: 32px;
@@ -466,9 +494,27 @@
                 <p style="color: #ccc; margin-bottom: 20px;">View all whitelisted addresses and their remaining rolls</p>
                 
                 <div class="form-group">
-                    <label>Load Whitelist Addresses:</label>
-                    <button class="btn" onclick="loadWhitelistAddresses()">📋 Load All Addresses</button>
-                    <div class="helper-text">This will check all addresses you've added through this admin panel</div>
+                    <label>Import & View Whitelist:</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-success" onclick="importWhitelistFromContract()">🔄 Import from Contract</button>
+                        <button class="btn" onclick="loadWhitelistAddresses()">📋 Load Saved Addresses</button>
+                    </div>
+                    <div class="helper-text">
+                        <strong>Import from Contract:</strong> Scans blockchain history for all WhitelistUpdated events (takes ~30 seconds)<br>
+                        <strong>Load Saved:</strong> Shows addresses already imported to local storage
+                    </div>
+                </div>
+                
+                <!-- Import Progress -->
+                <div id="importProgress" style="display: none;" class="import-progress">
+                    <h4 style="color: #4a90e2; margin-bottom: 10px;">🔍 Scanning Blockchain Events...</h4>
+                    <div id="importStatus" style="color: #ccc; margin-bottom: 10px;">Initializing...</div>
+                    <div class="progress-bar">
+                        <div id="importProgressBar" class="progress-fill" style="width: 0%;">0%</div>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #999;">
+                        This may take 30-60 seconds depending on how many addresses have been whitelisted.
+                    </div>
                 </div>
                 
                 <div id="whitelistViewerResults" style="margin-top: 20px; display: none;">
@@ -482,7 +528,7 @@
                 </div>
                 
                 <div style="margin-top: 20px; padding: 15px; background: rgba(74, 144, 226, 0.1); border: 2px solid #4a90e2; border-radius: 5px;">
-                    <strong style="color: #4a90e2;">💡 Tip:</strong> This displays addresses you've added through the "Manage Whitelist" section. The admin panel keeps a local record of addresses for easy reference.
+                    <strong style="color: #4a90e2;">💡 How it works:</strong> The "Import from Contract" button scans your smart contract's event history to find all addresses that have ever been whitelisted. This is a one-time import that you can run whenever you need updated data.
                 </div>
             </div>
 
