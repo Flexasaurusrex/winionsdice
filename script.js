@@ -1,4 +1,4 @@
-// Winions Dice Roller - FINAL COMPLETE WITH SCHOOL-WEIGHTED RANGES
+// Winions Dice Roller - FINAL COMPLETE WITH SCHOOL TRACKING
 // Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
 // AUDIO - Winions Theme (loops continuously)
@@ -14,728 +14,344 @@ let currentSchool = null;
 let currentRollTotal = 0;
 let currentHouseName = '';
 let availableHouses = {};
-let hasPendingClaim = false; // Track if user has unclaimed roll
+let hasPendingClaim = false;
 
-// LOCALSTORAGE VERSION - Increment this to clear old data
-const LOCALSTORAGE_VERSION = 3; // Incremented for new weighted ranges
+// Contract Configuration
+const CONFIG = {
+    DISTRIBUTION_CONTRACT: "0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7",
+    WINIONS_NFT_CONTRACT: "0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733",
+    CHAIN_ID: 1,
+    NETWORK_NAME: "Ethereum Mainnet"
+};
 
-// 🎲 SCHOOL-SPECIFIC WEIGHTED DICE RANGES
-// Each school has 75% commons (Havoc + Misfits), 25% rares
-// Rares are WEIGHTED towards specific houses per school
+// 🎲 WEIGHTED SCHOOL-SPECIFIC HOUSE RANGES
+// Each school maintains 75% commons, 25% weighted rares
 
-// 🔥 ANARCHY School - Weighted towards: Hellish, Frog, Shadows
+// 🔥 ANARCHY - Boosts: Hellish, Frog, Shadows
 const ANARCHY_RANGES = {
-    'House of Havoc': { min: 66, max: 250 },      // 185 rolls = 55.9% (COMMONS)
-    'House of Misfits': { min: 251, max: 313 },   // 63 rolls = 19.0% (COMMONS)
-    // COMMONS TOTAL: 248 rolls = 74.9% ✅
+    'House of Havoc': { min: 66, max: 250 },      // 185 rolls = 49.7%
+    'House of Misfits': { min: 251, max: 313 },   // 63 rolls = 16.9%
+    // COMMONS TOTAL: 248/331 = 74.9%
+    
     'House of Frog': { min: 314, max: 333 },      // 20 rolls = 6.0% ⬆️ BOOSTED
-    'House of Shadows': { min: 334, max: 348 },   // 15 rolls = 4.5% ⬆️ BOOSTED
-    'House of Hellish': { min: 349, max: 358 },   // 10 rolls = 3.0% ⬆️ BOOSTED
-    'House of Theory': { min: 359, max: 364 },    // 6 rolls = 1.8%
-    'House of Spectrum': { min: 365, max: 370 },  // 6 rolls = 1.8%
-    'House of Clay': { min: 371, max: 376 },      // 6 rolls = 1.8%
-    'House of Stencil': { min: 377, max: 382 },   // 6 rolls = 1.8%
-    'House of Hologram': { min: 383, max: 388 },  // 6 rolls = 1.8%
-    'House of Gold': { min: 389, max: 396 }       // 8 rolls = 2.4%
+    'House of Theory': { min: 334, max: 339 },    // 6 rolls = 1.8%
+    'House of Spectrum': { min: 340, max: 345 },  // 6 rolls = 1.8%
+    'House of Clay': { min: 346, max: 348 },      // 3 rolls = 0.9%
+    'House of Stencil': { min: 349, max: 354 },   // 6 rolls = 1.8%
+    'House of Shadows': { min: 355, max: 369 },   // 15 rolls = 4.5% ⬆️ BOOSTED
+    'House of Hellish': { min: 370, max: 379 },   // 10 rolls = 3.0% ⬆️ BOOSTED
+    'House of Hologram': { min: 380, max: 385 },  // 6 rolls = 1.8%
+    'House of Gold': { min: 386, max: 396 }       // 11 rolls = 3.3%
 };
 
-// 🎨 MISCHIEF School - Weighted towards: Clay, Spectrum, Gold
+// 🎨 MISCHIEF - Boosts: Clay, Spectrum, Gold
 const MISCHIEF_RANGES = {
-    'House of Havoc': { min: 66, max: 250 },      // 185 rolls = 55.9% (COMMONS)
-    'House of Misfits': { min: 251, max: 313 },   // 63 rolls = 19.0% (COMMONS)
-    // COMMONS TOTAL: 248 rolls = 74.9% ✅
-    'House of Spectrum': { min: 314, max: 333 },  // 20 rolls = 6.0% ⬆️ BOOSTED
-    'House of Clay': { min: 334, max: 348 },      // 15 rolls = 4.5% ⬆️ BOOSTED
-    'House of Gold': { min: 349, max: 358 },      // 10 rolls = 3.0% ⬆️ BOOSTED
-    'House of Frog': { min: 359, max: 364 },      // 6 rolls = 1.8%
-    'House of Theory': { min: 365, max: 370 },    // 6 rolls = 1.8%
-    'House of Stencil': { min: 371, max: 376 },   // 6 rolls = 1.8%
-    'House of Shadows': { min: 377, max: 382 },   // 6 rolls = 1.8%
-    'House of Hellish': { min: 383, max: 388 },   // 6 rolls = 1.8%
-    'House of Hologram': { min: 389, max: 396 }   // 8 rolls = 2.4%
+    'House of Havoc': { min: 66, max: 250 },      // 185 rolls = 49.7%
+    'House of Misfits': { min: 251, max: 313 },   // 63 rolls = 16.9%
+    // COMMONS TOTAL: 248/331 = 74.9%
+    
+    'House of Frog': { min: 314, max: 319 },      // 6 rolls = 1.8%
+    'House of Theory': { min: 320, max: 325 },    // 6 rolls = 1.8%
+    'House of Spectrum': { min: 326, max: 345 },  // 20 rolls = 6.0% ⬆️ BOOSTED
+    'House of Clay': { min: 346, max: 360 },      // 15 rolls = 4.5% ⬆️ BOOSTED
+    'House of Stencil': { min: 361, max: 366 },   // 6 rolls = 1.8%
+    'House of Shadows': { min: 367, max: 372 },   // 6 rolls = 1.8%
+    'House of Hellish': { min: 373, max: 375 },   // 3 rolls = 0.9%
+    'House of Hologram': { min: 376, max: 381 },  // 6 rolls = 1.8%
+    'House of Gold': { min: 382, max: 396 }       // 15 rolls = 4.5% ⬆️ BOOSTED
 };
 
-// 🍀 LUCK School - Weighted towards: Hologram, Stencil, Theory
+// 🍀 LUCK - Boosts: Hologram, Stencil, Theory
 const LUCK_RANGES = {
-    'House of Havoc': { min: 66, max: 250 },      // 185 rolls = 55.9% (COMMONS)
-    'House of Misfits': { min: 251, max: 313 },   // 63 rolls = 19.0% (COMMONS)
-    // COMMONS TOTAL: 248 rolls = 74.9% ✅
-    'House of Stencil': { min: 314, max: 333 },   // 20 rolls = 6.0% ⬆️ BOOSTED
-    'House of Theory': { min: 334, max: 348 },    // 15 rolls = 4.5% ⬆️ BOOSTED
-    'House of Hologram': { min: 349, max: 358 },  // 10 rolls = 3.0% ⬆️ BOOSTED
-    'House of Frog': { min: 359, max: 364 },      // 6 rolls = 1.8%
-    'House of Spectrum': { min: 365, max: 370 },  // 6 rolls = 1.8%
-    'House of Clay': { min: 371, max: 376 },      // 6 rolls = 1.8%
-    'House of Shadows': { min: 377, max: 382 },   // 6 rolls = 1.8%
-    'House of Hellish': { min: 383, max: 388 },   // 6 rolls = 1.8%
-    'House of Gold': { min: 389, max: 396 }       // 8 rolls = 2.4%
+    'House of Havoc': { min: 66, max: 250 },      // 185 rolls = 49.7%
+    'House of Misfits': { min: 251, max: 313 },   // 63 rolls = 16.9%
+    // COMMONS TOTAL: 248/331 = 74.9%
+    
+    'House of Frog': { min: 314, max: 319 },      // 6 rolls = 1.8%
+    'House of Theory': { min: 320, max: 334 },    // 15 rolls = 4.5% ⬆️ BOOSTED
+    'House of Spectrum': { min: 335, max: 340 },  // 6 rolls = 1.8%
+    'House of Clay': { min: 341, max: 343 },      // 3 rolls = 0.9%
+    'House of Stencil': { min: 344, max: 363 },   // 20 rolls = 6.0% ⬆️ BOOSTED
+    'House of Shadows': { min: 364, max: 369 },   // 6 rolls = 1.8%
+    'House of Hellish': { min: 370, max: 372 },   // 3 rolls = 0.9%
+    'House of Hologram': { min: 373, max: 382 },  // 10 rolls = 3.0% ⬆️ BOOSTED
+    'House of Gold': { min: 383, max: 396 }       // 14 rolls = 4.2%
 };
 
-// Helper function to get the correct ranges based on selected school
-function getCurrentRanges() {
-    switch(currentSchool) {
-        case 'anarchy':
-            return ANARCHY_RANGES;
-        case 'mischief':
-            return MISCHIEF_RANGES;
-        case 'luck':
-            return LUCK_RANGES;
-        default:
-            console.warn('No school selected, using ANARCHY as default');
-            return ANARCHY_RANGES;
-    }
-}
-
-// CRITICAL: Check localStorage version and clear old data if needed
-function checkLocalStorageVersion() {
-    const storedVersion = localStorage.getItem('winions_version');
+// Helper function to get house from roll total based on current school
+function getHouseFromRoll(rollTotal) {
+    let ranges;
     
-    if (!storedVersion || parseInt(storedVersion) < LOCALSTORAGE_VERSION) {
-        console.log('🔄 OLD LOCALSTORAGE DETECTED - Clearing all data...');
-        console.log(`Stored version: ${storedVersion || 'none'}, Current version: ${LOCALSTORAGE_VERSION}`);
-        
-        // Clear all Winions-related localStorage
-        localStorage.removeItem('winions_pending_claim');
-        localStorage.removeItem('winions_version');
-        
-        // Set new version
-        localStorage.setItem('winions_version', LOCALSTORAGE_VERSION.toString());
-        
-        console.log('✅ localStorage cleared and updated to new version');
-        showToast('🔄 App updated! New weighted dice system enabled!', 'info');
+    // Select the appropriate range set based on school
+    if (currentSchool === 'anarchy') {
+        ranges = ANARCHY_RANGES;
+    } else if (currentSchool === 'mischief') {
+        ranges = MISCHIEF_RANGES;
+    } else if (currentSchool === 'luck') {
+        ranges = LUCK_RANGES;
     } else {
-        console.log(`✅ localStorage version ${LOCALSTORAGE_VERSION} - up to date`);
+        // Fallback to Anarchy if no school selected
+        ranges = ANARCHY_RANGES;
     }
-}
-
-// CRITICAL: Check for pending claim on page load (ANTI-REFRESH PROTECTION)
-window.addEventListener('load', async () => {
-    // FIRST: Check and update localStorage version
-    checkLocalStorageVersion();
     
-    // THEN: Check if user has a pending claim from before refresh
-    checkForPendingClaim();
-    
-    document.getElementById('connectButton').addEventListener('click', connectWallet);
-    document.getElementById('continueToSchool').addEventListener('click', handleContinueToSchool);
-    
-    document.querySelectorAll('.school-button').forEach(button => {
-        button.addEventListener('click', () => selectSchool(button.dataset.school));
-    });
-    
-    document.getElementById('rollButton').addEventListener('click', rollDice);
-    document.getElementById('claimButton').addEventListener('click', claimWinion);
-});
-
-// Check localStorage for pending claims
-function checkForPendingClaim() {
-    const pendingClaim = localStorage.getItem('winions_pending_claim');
-    
-    if (pendingClaim) {
-        try {
-            const claimData = JSON.parse(pendingClaim);
-            
-            // Restore pending claim state
-            hasPendingClaim = true;
-            currentRollTotal = claimData.rollTotal;
-            currentHouseName = claimData.houseName;
-            currentSchool = claimData.school;
-            
-            console.log('🚨 ANTI-REFRESH PROTECTION ACTIVATED!');
-            console.log('⚠️ User tried to refresh page to bypass claim!');
-            console.log('Restored pending claim:');
-            console.log('  Roll Total:', currentRollTotal);
-            console.log('  House:', currentHouseName);
-            console.log('  School:', currentSchool);
-            console.log('  Timestamp:', new Date(claimData.timestamp).toLocaleString());
-            
-            // Show prominent warning
-            setTimeout(() => {
-                showToast('🚨 YOU HAVE AN UNCLAIMED WINION!', 'error');
-                showToast('You must claim your previous Winion before rolling again!', 'warning');
-                showToast('Refreshing the page will not let you bypass this!', 'warning');
-            }, 1000);
-            
-        } catch (error) {
-            console.error('Error parsing pending claim:', error);
-            localStorage.removeItem('winions_pending_claim');
+    for (const [house, range] of Object.entries(ranges)) {
+        if (rollTotal >= range.min && rollTotal <= range.max) {
+            return house;
         }
-    } else {
-        console.log('✅ No pending claims detected');
+    }
+    
+    return null;
+}
+
+// Generate weighted dice rolls that maintain 75% commons
+function generateSmartDiceRolls() {
+    const dice = [];
+    
+    // Weighted die faces [1,2,2,3,3,4]
+    // Average per die: 2.5
+    // 66 dice × 2.5 = 165 average (falls in Commons range)
+    const weightedFaces = [1, 2, 2, 3, 3, 4];
+    
+    for (let i = 0; i < 66; i++) {
+        const randomIndex = Math.floor(Math.random() * weightedFaces.length);
+        dice.push(weightedFaces[randomIndex]);
+    }
+    
+    return dice;
+}
+
+// Version check and localStorage management
+const APP_VERSION = 3; // Increment this when making breaking changes
+
+function checkVersion() {
+    const savedVersion = localStorage.getItem('winions_app_version');
+    
+    if (savedVersion !== String(APP_VERSION)) {
+        console.log('🔄 App version updated, clearing old data');
+        
+        // Clear old roll data but preserve analytics
+        localStorage.removeItem('winions_pending_claim');
+        localStorage.removeItem('winions_roll_data');
+        
+        // Update version
+        localStorage.setItem('winions_app_version', String(APP_VERSION));
     }
 }
 
-// Save pending claim to localStorage (ANTI-REFRESH PROTECTION)
-function savePendingClaim(rollTotal, houseName, school) {
-    const claimData = {
-        rollTotal: rollTotal,
-        houseName: houseName,
-        school: school,
-        timestamp: Date.now(),
-        userAddress: userAddress // Track which wallet has the pending claim
-    };
-    
-    localStorage.setItem('winions_pending_claim', JSON.stringify(claimData));
-    console.log('🔒 PENDING CLAIM LOCKED IN LOCALSTORAGE');
-    console.log('   User CANNOT bypass by refreshing!');
-    console.log('   Data:', claimData);
-}
+// Initialize version check
+checkVersion();
 
-// Clear pending claim from localStorage (ONLY after successful claim)
-function clearPendingClaim() {
-    localStorage.removeItem('winions_pending_claim');
-    hasPendingClaim = false;
-    console.log('✅ Pending claim cleared - user can roll again');
-}
-
-// Check if user is on mobile
-function isMobile() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
+// Wallet Connection
 async function connectWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
-            if (isMobile()) {
-                showMobileInstructions();
-            } else {
-                alert('Please install MetaMask or another Web3 wallet to use this app!');
-            }
+            alert('Please install MetaMask to use this app!');
             return;
         }
-
-        document.getElementById('walletStatus').style.display = 'block';
-        document.getElementById('walletStatus').textContent = 'Opening wallet connection...';
-        document.getElementById('connectButton').disabled = true;
 
         const accounts = await window.ethereum.request({ 
             method: 'eth_requestAccounts' 
         });
         
         userAddress = accounts[0];
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
         
-        // Detect wallet type
-        const walletName = window.ethereum.isMetaMask ? 'MetaMask' :
-                          window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet' :
-                          window.ethereum.isRainbow ? 'Rainbow' :
-                          window.ethereum.isTrust ? 'Trust Wallet' : 'Web3 Wallet';
+        // Initialize contract
+        const contractABI = [
+            "function distributionActive() view returns (bool)",
+            "function getUserRolls(address user) view returns (uint256 freeRolls, uint256 paidRolls)",
+            "function getPrices() view returns (uint256 singlePrice, uint256 threePrice, uint256 fivePrice)",
+            "function purchaseRolls(uint256 rollType) payable",
+            "function rollForWinion(string school) returns (uint256 rollTotal)",
+            "function claimWinion() returns (uint256 tokenId)",
+            "function getAvailableHouses(uint256 rollTotal) view returns (string[] memory houses)"
+        ];
         
         distributionContract = new ethers.Contract(
             CONFIG.DISTRIBUTION_CONTRACT,
-            DISTRIBUTION_CONTRACT_ABI,
+            contractABI,
             signer
         );
         
+        // Check network
         const network = await provider.getNetwork();
-        if (network.chainId !== CONFIG.CHAIN_ID) {
-            await switchToMainnet();
+        if (Number(network.chainId) !== CONFIG.CHAIN_ID) {
+            alert(`Please switch to ${CONFIG.NETWORK_NAME}`);
             return;
         }
         
-        document.getElementById('walletStatus').textContent = `Connected with ${walletName}: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-        
-        await loadUserRolls();
-        
-    } catch (error) {
-        console.error('Wallet connection error:', error);
-        document.getElementById('connectButton').disabled = false;
-        document.getElementById('walletStatus').style.display = 'none';
-        
-        if (error.code === 4001) {
-            showToast('Connection rejected. Please try again.', 'error');
-        } else {
-            showToast('Failed to connect wallet. Please try again.', 'error');
+        // Check if distribution is active
+        const isActive = await distributionContract.distributionActive();
+        if (!isActive) {
+            alert('Distribution is not currently active. Please check back later!');
+            document.getElementById('walletSection').style.display = 'none';
+            return;
         }
-    }
-}
-
-async function switchToMainnet() {
-    try {
-        await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x1' }],
-        });
         
-        // Retry connection after switching
-        setTimeout(connectWallet, 1000);
+        // Update UI
+        document.getElementById('walletAddress').textContent = 
+            `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+        
+        document.getElementById('connectSection').style.display = 'none';
+        document.getElementById('walletSection').style.display = 'block';
+        
+        // Load user data
+        await loadUserRolls();
+        await loadPrices();
+        
+        // Check for pending claim
+        checkPendingClaim();
+        
     } catch (error) {
-        console.error('Network switch error:', error);
-        showToast('Please switch to Ethereum Mainnet in your wallet.', 'error');
+        console.error('Error connecting wallet:', error);
+        alert('Error connecting wallet. Please try again.');
     }
 }
 
-function showMobileInstructions() {
-    const modal = document.createElement('div');
-    modal.className = 'mobile-modal';
-    modal.innerHTML = `
-        <div class="mobile-modal-content">
-            <h2>📱 Connect on Mobile</h2>
-            <div class="mobile-steps">
-                <div class="mobile-step">
-                    <span class="step-number">1</span>
-                    <p>Open your wallet app (MetaMask, Coinbase Wallet, etc.)</p>
-                </div>
-                <div class="mobile-step">
-                    <span class="step-number">2</span>
-                    <p>Tap the Browser tab</p>
-                </div>
-                <div class="mobile-step">
-                    <span class="step-number">3</span>
-                    <p>Paste this URL:</p>
-                    <div class="url-box">
-                        <span id="copyUrl">${window.location.hostname}</span>
-                        <button onclick="copyToClipboard('${window.location.hostname}')" class="copy-btn">COPY</button>
-                    </div>
-                </div>
-                <div class="mobile-step">
-                    <span class="step-number">4</span>
-                    <p>Click "Connect Wallet" when the site loads</p>
-                </div>
-            </div>
-            <button onclick="this.parentElement.parentElement.remove()" class="close-mobile-btn">CLOSE</button>
-        </div>
-    `;
-    document.body.appendChild(modal);
-}
-
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text);
-    showToast('URL copied to clipboard!', 'success');
-}
-
+// Load user rolls
 async function loadUserRolls() {
     try {
         const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
+        const free = Number(freeRolls);
+        const paid = Number(paidRolls);
+        const total = free + paid;
         
-        document.getElementById('freeRollsCount').textContent = freeRolls.toString();
-        document.getElementById('paidRollsCount').textContent = paidRolls.toString();
+        document.getElementById('freeRolls').textContent = free;
+        document.getElementById('paidRolls').textContent = paid;
+        document.getElementById('totalRolls').textContent = total;
         
-        const [single, three, five] = await distributionContract.getPrices();
-        document.getElementById('price1').textContent = `${ethers.utils.formatEther(single)} ETH`;
-        document.getElementById('price3').textContent = `${ethers.utils.formatEther(three)} ETH`;
-        document.getElementById('price5').textContent = `${ethers.utils.formatEther(five)} ETH`;
-        
-        document.getElementById('walletScreen').style.display = 'none';
-        document.getElementById('rollsScreen').style.display = 'block';
-        
-        // Update Continue button based on pending claim status
-        const continueButton = document.getElementById('continueToSchool');
-        if (hasPendingClaim) {
-            continueButton.textContent = '🚫 CLAIM YOUR WINION FIRST';
-            continueButton.style.background = 'linear-gradient(135deg, #ff4444 0%, #cc0000 100%)';
-            continueButton.style.borderColor = '#ff0000';
-            continueButton.style.cursor = 'pointer';
-            continueButton.style.animation = 'pulse 1.5s ease-in-out infinite';
-            console.log('⚠️ User has pending claim - Continue button will restore claim screen');
+        // Show/hide roll button based on available rolls
+        if (total > 0) {
+            document.getElementById('noRollsMessage').style.display = 'none';
+            document.getElementById('schoolSelection').style.display = 'block';
         } else {
-            continueButton.textContent = 'CONTINUE TO ROLL →';
-            continueButton.style.background = '';
-            continueButton.style.borderColor = '';
-            continueButton.style.cursor = 'pointer';
-            continueButton.style.animation = '';
-            console.log('✅ No pending claim - Continue button unlocked');
-        }
-        
-        console.log(`Loaded rolls: ${freeRolls} free, ${paidRolls} paid`);
-        console.log(`Wallet still connected: ${userAddress}`);
-        console.log(`Distribution contract: ${CONFIG.DISTRIBUTION_CONTRACT}`);
-        
-        const isActive = await distributionContract.distributionActive();
-        if (!isActive) {
-            showToast('⚠️ Distribution is not currently active. Please check back later!', 'warning');
+            document.getElementById('noRollsMessage').style.display = 'block';
+            document.getElementById('schoolSelection').style.display = 'none';
         }
         
     } catch (error) {
         console.error('Error loading rolls:', error);
-        showToast('Error loading your rolls. Please refresh and try again.', 'error');
     }
 }
 
-async function purchaseRolls(numberOfRolls) {
+// Load prices
+async function loadPrices() {
     try {
-        showToast('Preparing transaction...', 'info');
+        const [single, three, five] = await distributionContract.getPrices();
         
+        document.getElementById('singlePrice').textContent = ethers.formatEther(single);
+        document.getElementById('threePrice').textContent = ethers.formatEther(three);
+        document.getElementById('fivePrice').textContent = ethers.formatEther(five);
+        
+    } catch (error) {
+        console.error('Error loading prices:', error);
+    }
+}
+
+// Purchase rolls
+async function purchaseRolls(rollType) {
+    try {
         const [single, three, five] = await distributionContract.getPrices();
         let price;
         
-        if (numberOfRolls === 1) price = single;
-        else if (numberOfRolls === 3) price = three;
-        else if (numberOfRolls === 5) price = five;
+        if (rollType === 1) {
+            price = single;
+        } else if (rollType === 3) {
+            price = three;
+        } else if (rollType === 5) {
+            price = five;
+        }
         
-        const tx = await distributionContract.purchaseRolls(numberOfRolls, {
-            value: price
-        });
+        const tx = await distributionContract.purchaseRolls(rollType, { value: price });
         
         showToast('Transaction sent! Waiting for confirmation...', 'info');
         
         await tx.wait();
         
-        showToast(`✅ ${numberOfRolls} roll${numberOfRolls > 1 ? 's' : ''} purchased successfully!`, 'success');
+        showToast('Rolls purchased successfully!', 'success');
         
         await loadUserRolls();
         
     } catch (error) {
-        console.error('Purchase error:', error);
-        
-        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
-            showToast('Transaction rejected', 'error');
-        } else {
-            showToast(error.message || 'Purchase failed', 'error');
-        }
+        console.error('Error purchasing rolls:', error);
+        showToast('Error purchasing rolls. Please try again.', 'error');
     }
 }
 
-async function handleContinueToSchool() {
-    // CRITICAL: If there's a pending claim, restore them to the claim screen!
-    if (hasPendingClaim) {
-        console.log('🔒 User has pending claim - restoring to claim screen...');
-        console.log('Pending claim details:', {
-            rollTotal: currentRollTotal,
-            houseName: currentHouseName,
-            school: currentSchool
-        });
-        
-        // Restore them to the dice screen with the claim button
-        restorePendingClaimScreen();
-        return; // HARD BLOCK - but we restore them to claim screen
-    }
-    
-    // Check if user has rolls BEFORE allowing them to continue
-    try {
-        const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
-        const totalRolls = Number(freeRolls.toString()) + Number(paidRolls.toString());
-        
-        if (totalRolls === 0) {
-            showToast('⚠️ You need to purchase rolls first!', 'warning');
-            // Highlight the purchase section
-            const purchaseSection = document.querySelector('.purchase-section');
-            purchaseSection.style.animation = 'pulse 1s ease-in-out 3';
-            return;
-        }
-        
-        showSchoolScreen();
-        
-    } catch (error) {
-        console.error('Error checking rolls:', error);
-        showToast('Error checking your rolls. Please try again.', 'error');
-    }
-}
-
-// Restore user to the dice screen to claim their pending Winion
-async function restorePendingClaimScreen() {
-    console.log('🔄 Restoring pending claim screen...');
-    
-    // CRITICAL: Check if house still has NFTs before restoring!
-    console.log('Checking if house still has NFTs available...');
-    await checkAvailableHouses();
-    
-    // ESCAPE HATCH: If house has no NFTs, clear the pending claim
-    if (!availableHouses[currentHouseName] || availableHouses[currentHouseName].count === 0) {
-        console.error('⚠️ ESCAPE HATCH ACTIVATED!');
-        console.error(`House "${currentHouseName}" has no NFTs left!`);
-        console.error('Clearing pending claim to prevent user from being stuck...');
-        
-        clearPendingClaim();
-        
-        showToast('⚠️ The house you rolled into has no NFTs left!', 'error');
-        showToast('Your pending claim has been cleared. You can roll again!', 'warning');
-        
-        // Reset everything
-        currentSchool = null;
-        currentRollTotal = 0;
-        currentHouseName = '';
-        
-        // Stay on rolls screen, reload counts
-        await loadUserRolls();
-        return;
-    }
-    
-    // House has NFTs - proceed with restore
-    console.log(`✅ House "${currentHouseName}" has ${availableHouses[currentHouseName].count} NFTs - restoring claim screen`);
-    
-    // Hide rolls screen
-    document.getElementById('rollsScreen').style.display = 'none';
-    
-    // Show dice screen
-    document.getElementById('diceScreen').style.display = 'block';
-    document.getElementById('chosenSchool').textContent = (currentSchool || 'UNKNOWN').toUpperCase();
-    
-    // Set school color
-    const schoolColors = {
-        anarchy: '#ff6b35',
-        mischief: '#4a90e2',
-        luck: '#50c878'
-    };
-    document.body.style.setProperty('--school-color', schoolColors[currentSchool] || '#ff1a1a');
-    
-    // Recreate the dice display
-    createDiceDisplay();
-    const spinningNumber = document.getElementById('spinningNumber');
-    if (spinningNumber) {
-        spinningNumber.textContent = currentRollTotal;
-        spinningNumber.classList.remove('rolling', 'landing');
-    }
-    
-    // Show the total
-    document.getElementById('totalValue').textContent = currentRollTotal;
-    
-    // Disable roll button
-    document.getElementById('rollButton').disabled = true;
-    document.getElementById('rollButton').textContent = '⚠️ CLAIM YOUR WINION FIRST';
-    
-    // Show the house result with claim button
-    document.getElementById('rolledHouseName').textContent = currentHouseName;
-    document.getElementById('houseResult').style.display = 'block';
-    
-    // Show remaining NFTs in house
-    const remaining = availableHouses[currentHouseName].count;
-    const countDisplay = document.createElement('p');
-    countDisplay.style.color = '#00ff00';
-    countDisplay.style.marginTop = '10px';
-    countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining in this house`;
-    countDisplay.className = 'nft-count';
-    
-    const houseResult = document.getElementById('houseResult');
-    const existingCount = houseResult.querySelector('.nft-count');
-    if (existingCount) existingCount.remove();
-    houseResult.appendChild(countDisplay);
-    
-    // Show warning message
-    const warningMsg = document.createElement('p');
-    warningMsg.className = 'claim-warning';
-    warningMsg.style.color = '#ffcc00';
-    warningMsg.style.marginTop = '15px';
-    warningMsg.style.fontWeight = 'bold';
-    warningMsg.style.animation = 'pulse 1.5s ease-in-out infinite';
-    warningMsg.textContent = '⚠️ Complete your claim from before you refreshed!';
-    
-    const existingWarning = houseResult.querySelector('.claim-warning');
-    if (existingWarning) existingWarning.remove();
-    houseResult.appendChild(warningMsg);
-    
-    // Make sure claim button is enabled
-    document.getElementById('claimButton').disabled = false;
-    document.getElementById('claimButton').textContent = 'CLAIM YOUR WINION';
-    
-    showToast('✅ Restored your pending claim - click CLAIM YOUR WINION!', 'success');
-    console.log('✅ User restored to claim screen');
-}
-
-function showSchoolScreen() {
-    document.getElementById('rollsScreen').style.display = 'none';
-    document.getElementById('schoolScreen').style.display = 'block';
-}
-
-async function selectSchool(school) {
-    // CRITICAL: Block if there's an unclaimed Winion
-    if (hasPendingClaim) {
-        showToast('⚠️ YOU CANNOT ROLL AGAIN UNTIL YOU CLAIM YOUR PREVIOUS WINION!', 'error');
-        showToast('Complete your current claim first!', 'warning');
-        return; // HARD BLOCK
-    }
-    
+// 📊 TRACK SCHOOL SELECTION IN LOCALSTORAGE
+function selectSchool(school) {
     currentSchool = school;
     
-    // 📊 TRACK SCHOOL SELECTION FOR ANALYTICS
-    try {
-        const key = `winions_school_${school}`;
-        const currentCount = parseInt(localStorage.getItem(key) || '0');
-        localStorage.setItem(key, (currentCount + 1).toString());
-        console.log(`📊 School selection tracked: ${school} (total: ${currentCount + 1})`);
-    } catch (error) {
-        console.error('Error tracking school selection:', error);
-    }
+    // 🎯 INCREMENT SCHOOL COUNTER IN LOCALSTORAGE
+    const storageKey = `winions_school_${school}`;
+    const currentCount = parseInt(localStorage.getItem(storageKey) || '0');
+    localStorage.setItem(storageKey, String(currentCount + 1));
     
-    console.log(`🎲 School selected: ${school.toUpperCase()}`);
-    console.log(`Using ${school.toUpperCase()} weighted ranges`);
+    console.log(`🎲 School selected: ${school} (Total: ${currentCount + 1})`);
     
-    document.getElementById('schoolScreen').style.display = 'none';
-    document.getElementById('diceScreen').style.display = 'block';
-    document.getElementById('chosenSchool').textContent = school.toUpperCase();
-    document.getElementById('rollButton').disabled = true;
-    document.getElementById('rollButton').textContent = 'CHECKING INVENTORY...';
+    // Update UI
+    document.querySelectorAll('.school-btn').forEach(btn => {
+        btn.classList.remove('selected');
+    });
     
-    const schoolColors = {
+    document.getElementById(`school-${school}`).classList.add('selected');
+    
+    // Update school color theme
+    const colors = {
         anarchy: '#ff6b35',
         mischief: '#4a90e2',
         luck: '#50c878'
     };
     
-    document.body.style.setProperty('--school-color', schoolColors[school] || '#ff1a1a');
+    document.documentElement.style.setProperty('--school-color', colors[school]);
     
-    // Only check houses if we haven't already (or if cache is empty)
-    if (Object.keys(availableHouses).length === 0) {
-        console.log('Available houses cache empty, checking blockchain...');
-        await checkAvailableHouses();
-    } else {
-        console.log(`Using cached houses: ${Object.keys(availableHouses).length} houses available`);
-    }
-    
-    createDiceDisplay();
-    
-    // Final validation before enabling roll
-    if (Object.keys(availableHouses).length === 0) {
-        document.getElementById('rollButton').disabled = true;
-        document.getElementById('rollButton').textContent = '❌ NO NFTS AVAILABLE';
-        showToast('⚠️ No NFTs available! Please contact admin.', 'error');
-    } else {
-        document.getElementById('rollButton').disabled = false;
-        document.getElementById('rollButton').textContent = '🎲 ROLL THE DICE 🎲';
-    }
+    // Show roll button
+    document.getElementById('rollSection').style.display = 'block';
 }
 
-async function checkAvailableHouses() {
-    try {
-        availableHouses = {};
-        
-        console.log('🔍 Checking all houses for NFTs...');
-        console.log('Contract address:', CONFIG.DISTRIBUTION_CONTRACT);
-        
-        // Use current school's ranges for checking
-        const currentRanges = getCurrentRanges();
-        
-        for (const [houseName, range] of Object.entries(currentRanges)) {
-            try {
-                console.log(`Checking ${houseName}...`);
+// Check for pending claim
+function checkPendingClaim() {
+    const pendingData = localStorage.getItem('winions_pending_claim');
+    
+    if (pendingData) {
+        try {
+            const data = JSON.parse(pendingData);
+            
+            // Verify it's for current user
+            if (data.user.toLowerCase() === userAddress.toLowerCase()) {
+                hasPendingClaim = true;
+                currentHouseName = data.houseName;
                 
-                const count = await distributionContract.getHouseInventoryCount(houseName);
-                console.log(`Raw response for ${houseName}:`, count);
+                // Show success modal
+                document.getElementById('resultHouseName').textContent = currentHouseName;
+                document.getElementById('successModal').style.display = 'flex';
                 
-                const countNum = Number(count.toString());
-                console.log(`${houseName}: ${countNum} NFTs`);
-                
-                if (countNum > 0) {
-                    availableHouses[houseName] = {
-                        count: countNum,
-                        range: range
-                    };
-                    console.log(`✅ ${houseName}: ${countNum} NFTs available`);
-                } else {
-                    console.log(`❌ ${houseName}: 0 NFTs`);
-                }
-            } catch (error) {
-                console.error(`❌ ERROR checking ${houseName}:`, error.message);
-                console.error('Full error:', error);
+                console.log('📋 Restored pending claim:', data);
+            } else {
+                // Clear if different user
+                localStorage.removeItem('winions_pending_claim');
             }
+        } catch (error) {
+            console.error('Error restoring pending claim:', error);
+            localStorage.removeItem('winions_pending_claim');
         }
-        
-        console.log('=== FINAL RESULTS ===');
-        console.log('Available houses:', Object.keys(availableHouses));
-        console.log('Total houses with NFTs:', Object.keys(availableHouses).length);
-        console.log('Full availableHouses object:', availableHouses);
-        
-        if (Object.keys(availableHouses).length === 0) {
-            console.error('⚠️ NO HOUSES HAVE NFTS!');
-            showToast('⚠️ No NFTs available in any house! Please contact admin.', 'error');
-            document.getElementById('rollButton').disabled = true;
-        }
-        
-    } catch (error) {
-        console.error('❌ CRITICAL ERROR in checkAvailableHouses:', error);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
     }
 }
 
-function createDiceDisplay() {
-    const diceDisplay = document.getElementById('diceDisplay');
-    diceDisplay.innerHTML = '<div class="spinning-number" id="spinningNumber">0</div>';
+// Save pending claim
+function savePendingClaim(houseName) {
+    const claimData = {
+        user: userAddress,
+        houseName: houseName,
+        timestamp: Date.now()
+    };
     
-    // Inject styles for spinning number
-    if (!document.getElementById('spinningNumberStyles')) {
-        const style = document.createElement('style');
-        style.id = 'spinningNumberStyles';
-        style.textContent = `
-            .dice-display {
-                position: relative;
-                width: 100%;
-                min-height: 300px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            
-            .spinning-number {
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                font-size: 180px;
-                font-weight: 900;
-                color: #ff1a1a;
-                text-shadow: 0 0 40px rgba(255, 26, 26, 1),
-                           0 0 80px rgba(255, 26, 26, 0.8),
-                           0 0 120px rgba(255, 26, 26, 0.6);
-                font-family: 'Arial Black', sans-serif;
-                letter-spacing: -5px;
-                margin: 0;
-                padding: 0;
-                line-height: 1;
-            }
-            
-            .spinning-number.rolling {
-                animation: spin3d 0.1s linear infinite;
-            }
-            
-            .spinning-number.landing {
-                animation: zoomLand 0.5s ease-out forwards;
-            }
-            
-            @keyframes spin3d {
-                0% { 
-                    transform: translate(-50%, -50%) rotateX(0deg) scale(1);
-                }
-                100% { 
-                    transform: translate(-50%, -50%) rotateX(360deg) scale(1.1);
-                }
-            }
-            
-            @keyframes zoomLand {
-                0% { 
-                    transform: translate(-50%, -50%) scale(1.3) rotateX(0deg);
-                    text-shadow: 0 0 60px rgba(255, 26, 26, 1),
-                               0 0 120px rgba(255, 26, 26, 0.9),
-                               0 0 180px rgba(255, 26, 26, 0.7);
-                }
-                50% { 
-                    transform: translate(-50%, -50%) scale(0.9);
-                }
-                100% { 
-                    transform: translate(-50%, -50%) scale(1);
-                    text-shadow: 0 0 40px rgba(255, 26, 26, 1),
-                               0 0 80px rgba(255, 26, 26, 0.8),
-                               0 0 120px rgba(255, 26, 26, 0.6);
-                }
-            }
-            
-            @media (max-width: 768px) {
-                .spinning-number {
-                    font-size: 120px;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-    }
+    localStorage.setItem('winions_pending_claim', JSON.stringify(claimData));
+    console.log('💾 Saved pending claim:', claimData);
 }
 
-function generateSmartDiceRolls() {
-    const availableHousesList = Object.values(availableHouses);
-    
-    if (availableHousesList.length === 0) {
-        const total = Math.floor(Math.random() * 331) + 66;
-        return total;
-    }
-    
-    const randomHouse = availableHousesList[Math.floor(Math.random() * availableHousesList.length)];
-    const target = Math.floor(Math.random() * (randomHouse.range.max - randomHouse.range.min + 1)) + randomHouse.range.min;
-    
-    console.log(`🎲 Generated roll: ${target} → ${randomHouse.range.min}-${randomHouse.range.max}`);
-    
-    return target;
-}
-
+// Roll dice
 async function rollDice() {
     // 🎵 PLAY AUDIO - Loops continuously!
     rollAudio.currentTime = 0; // Reset to start
@@ -743,499 +359,190 @@ async function rollDice() {
     
     // TRIPLE CHECK: Block if there's an unclaimed Winion
     if (hasPendingClaim) {
-        showToast('⚠️ YOU CANNOT ROLL AGAIN! CLAIM YOUR PREVIOUS WINION FIRST!', 'error');
-        document.getElementById('rollButton').disabled = true;
-        document.getElementById('rollButton').textContent = '🚫 CLAIM YOUR WINION FIRST';
-        return; // ABSOLUTE HARD BLOCK
+        showToast('You must claim your Winion before rolling again!', 'error');
+        return;
     }
     
-    // CHECK ROLLS AGAIN before rolling
+    // Also check localStorage as backup
+    const pendingData = localStorage.getItem('winions_pending_claim');
+    if (pendingData) {
+        try {
+            const data = JSON.parse(pendingData);
+            if (data.user.toLowerCase() === userAddress.toLowerCase()) {
+                showToast('You have an unclaimed Winion! Please claim it first.', 'error');
+                
+                // Restore the modal
+                currentHouseName = data.houseName;
+                document.getElementById('resultHouseName').textContent = currentHouseName;
+                document.getElementById('successModal').style.display = 'flex';
+                
+                return;
+            }
+        } catch (e) {
+            // If corrupted, clear it
+            localStorage.removeItem('winions_pending_claim');
+        }
+    }
+    
+    if (!currentSchool) {
+        showToast('Please select a school first!', 'error');
+        return;
+    }
+    
     try {
-        const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
-        const totalRolls = Number(freeRolls.toString()) + Number(paidRolls.toString());
+        // Generate weighted dice
+        const diceRolls = generateSmartDiceRolls();
+        currentRollTotal = diceRolls.reduce((sum, val) => sum + val, 0);
         
-        if (totalRolls === 0) {
-            showToast('⚠️ No rolls available! Redirecting to purchase...', 'warning');
-            setTimeout(() => {
-                resetToRollsScreen();
-            }, 2000);
+        console.log('🎲 Generated dice:', diceRolls);
+        console.log('📊 Roll total:', currentRollTotal);
+        
+        // Animate dice rolling
+        await animateDiceRoll(diceRolls);
+        
+        // Determine house
+        currentHouseName = getHouseFromRoll(currentRollTotal);
+        
+        if (!currentHouseName) {
+            showToast('Error determining house. Please try again.', 'error');
             return;
         }
-    } catch (error) {
-        console.error('Error checking rolls before roll:', error);
-        showToast('Error checking your rolls. Please try again.', 'error');
-        return;
-    }
-    
-    const rollButton = document.getElementById('rollButton');
-    rollButton.disabled = true;
-    
-    const spinningNumber = document.getElementById('spinningNumber');
-    spinningNumber.classList.add('rolling');
-    
-    const targetTotal = generateSmartDiceRolls();
-    
-    let elapsed = 0;
-    const duration = 2000;
-    const interval = 50;
-    
-    const roller = setInterval(() => {
-        const randomNum = Math.floor(Math.random() * 331) + 66;
-        spinningNumber.textContent = randomNum;
-        elapsed += interval;
         
-        if (elapsed >= duration) {
-            clearInterval(roller);
-            spinningNumber.classList.remove('rolling');
-            spinningNumber.classList.add('landing');
-            spinningNumber.textContent = targetTotal;
-            
-            setTimeout(() => {
-                spinningNumber.classList.remove('landing');
-                calculateTotal(targetTotal);
-            }, 500);
-        }
-    }, interval);
-}
-
-function calculateTotal(total) {
-    currentRollTotal = total;
-    
-    document.getElementById('totalValue').textContent = total;
-    
-    setTimeout(() => {
-        revealHouse(total);
-    }, 500);
-}
-
-function revealHouse(total) {
-    const houseName = getHouseFromRoll(total);
-    currentHouseName = houseName;
-    
-    console.log(`🏠 Rolled ${total} → ${houseName}`);
-    
-    if (!availableHouses[houseName]) {
-        console.error(`ERROR: Rolled into ${houseName} with 0 NFTs!`);
-        showToast('⚠️ Error: Rolled into house with no NFTs. Please try again.', 'error');
-        document.getElementById('rollButton').disabled = false;
-        return;
+        console.log('🏠 Assigned house:', currentHouseName);
+        
+        // SET PENDING CLAIM FLAG
+        hasPendingClaim = true;
+        
+        // Save to localStorage
+        savePendingClaim(currentHouseName);
+        
+        // Show success modal
+        document.getElementById('resultHouseName').textContent = currentHouseName;
+        document.getElementById('successModal').style.display = 'flex';
+        
+        // Refresh roll count
+        await loadUserRolls();
+        
+    } catch (error) {
+        console.error('Error rolling dice:', error);
+        showToast('Error rolling dice. Please try again.', 'error');
     }
-    
-    document.getElementById('rolledHouseName').textContent = houseName;
-    document.getElementById('houseResult').style.display = 'block';
-    
-    const remaining = availableHouses[houseName].count;
-    const countDisplay = document.createElement('p');
-    countDisplay.style.color = '#00ff00';
-    countDisplay.style.marginTop = '10px';
-    countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining in this house`;
-    countDisplay.className = 'nft-count';
-    
-    const houseResult = document.getElementById('houseResult');
-    const existingCount = houseResult.querySelector('.nft-count');
-    if (existingCount) existingCount.remove();
-    houseResult.appendChild(countDisplay);
-    
-    // DISABLE ROLL BUTTON - Force claim
-    document.getElementById('rollButton').disabled = true;
-    document.getElementById('rollButton').textContent = '⚠️ CLAIM YOUR WINION FIRST';
-    
-    // Mark that there's a pending claim
-    hasPendingClaim = true;
-    
-    // 🔒 CRITICAL: Save to localStorage to prevent refresh bypass
-    savePendingClaim(currentRollTotal, currentHouseName, currentSchool);
-    
-    // Add warning message
-    const warningMsg = document.createElement('p');
-    warningMsg.className = 'claim-warning';
-    warningMsg.style.color = '#ffcc00';
-    warningMsg.style.marginTop = '15px';
-    warningMsg.style.fontWeight = 'bold';
-    warningMsg.style.animation = 'pulse 1.5s ease-in-out infinite';
-    warningMsg.textContent = '⚠️ You must claim this Winion before rolling again!';
-    
-    const existingWarning = houseResult.querySelector('.claim-warning');
-    if (existingWarning) existingWarning.remove();
-    houseResult.appendChild(warningMsg);
 }
 
-function getHouseFromRoll(total) {
-    // Use the current school's ranges
-    const currentRanges = getCurrentRanges();
+// Animate dice roll
+async function animateDiceRoll(diceRolls) {
+    const container = document.getElementById('diceAnimation');
+    container.innerHTML = '';
+    container.style.display = 'grid';
     
-    for (const [houseName, range] of Object.entries(currentRanges)) {
-        if (total >= range.min && total <= range.max) {
-            return houseName;
-        }
-    }
-    return 'Unknown House';
+    // Create dice elements
+    diceRolls.forEach((value, index) => {
+        const die = document.createElement('div');
+        die.className = 'die';
+        die.textContent = '?';
+        container.appendChild(die);
+        
+        // Animate after delay
+        setTimeout(() => {
+            die.classList.add('rolled');
+            die.textContent = value;
+        }, index * 20);
+    });
+    
+    // Wait for animation
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Show total
+    const total = document.createElement('div');
+    total.className = 'dice-total';
+    total.textContent = `Total: ${currentRollTotal}`;
+    container.appendChild(total);
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
 }
 
+// Claim Winion
 async function claimWinion() {
     try {
-        const claimButton = document.getElementById('claimButton');
-        claimButton.disabled = true;
-        claimButton.textContent = 'CLAIMING...';
-        
         showToast('Claiming your Winion...', 'info');
         
-        const tx = await distributionContract.claimWinion(
-            currentRollTotal,
-            currentHouseName
-        );
+        const tx = await distributionContract.claimWinion();
         
-        claimButton.textContent = 'WAITING FOR CONFIRMATION...';
         showToast('Transaction sent! Waiting for confirmation...', 'info');
         
         const receipt = await tx.wait();
         
-        const event = receipt.logs.find(log => {
+        // Parse event to get token ID
+        const claimEvent = receipt.logs.find(log => {
             try {
                 const parsed = distributionContract.interface.parseLog(log);
-                return parsed.name === 'NFTDistributed';
+                return parsed.name === 'WinionClaimed';
             } catch {
                 return false;
             }
         });
         
         let tokenId = 'Unknown';
-        if (event) {
-            const parsed = distributionContract.interface.parseLog(event);
+        if (claimEvent) {
+            const parsed = distributionContract.interface.parseLog(claimEvent);
             tokenId = parsed.args.tokenId.toString();
         }
         
-        // ✅ CRITICAL: Clear pending claim from localStorage AFTER successful claim
-        clearPendingClaim();
+        // CLEAR PENDING CLAIM
+        hasPendingClaim = false;
+        localStorage.removeItem('winions_pending_claim');
         
-        showToast(`🎉 Successfully claimed Winion #${tokenId}!`, 'success');
+        showToast(`Winion #${tokenId} claimed successfully!`, 'success');
         
-        await showSuccessModal(tokenId, tx.hash);
+        // Close modal
+        document.getElementById('successModal').style.display = 'none';
         
-    } catch (error) {
-        console.error('Claim error:', error);
+        // Reset for next roll
+        currentSchool = null;
+        document.querySelectorAll('.school-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        document.getElementById('rollSection').style.display = 'none';
+        document.getElementById('diceAnimation').innerHTML = '';
         
-        const claimButton = document.getElementById('claimButton');
-        claimButton.disabled = false;
-        claimButton.textContent = 'CLAIM YOUR WINION';
-        
-        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
-            showToast('Transaction rejected', 'error');
-        } else if (error.message.includes('No rolls available')) {
-            showToast('❌ No rolls available. Please purchase rolls first.', 'error');
-            // ESCAPE HATCH: Clear pending claim if no rolls
-            clearPendingClaim();
-            setTimeout(() => resetToRollsScreen(), 2000);
-        } else if (error.message.includes('No NFTs available')) {
-            // CRITICAL ESCAPE HATCH: House ran out of NFTs!
-            console.error('🚨 ESCAPE HATCH: House has no NFTs!');
-            showToast('❌ This house has no NFTs left!', 'error');
-            showToast('Clearing your pending claim so you can roll again...', 'warning');
-            
-            // Clear the pending claim to free the user
-            clearPendingClaim();
-            
-            // Reset state
-            currentSchool = null;
-            currentRollTotal = 0;
-            currentHouseName = '';
-            
-            // Go back to rolls screen after 2 seconds
-            setTimeout(() => resetToRollsScreen(), 2000);
-        } else if (error.message.includes('Distribution is not active')) {
-            showToast('❌ Distribution is not currently active.', 'error');
-        } else {
-            showToast(error.message || 'Claim failed. Please try again.', 'error');
-        }
-    }
-}
-
-async function showSuccessModal(tokenId, txHash) {
-    document.getElementById('claimedHouseName').textContent = currentHouseName;
-    document.getElementById('claimedTokenId').textContent = tokenId;
-    document.getElementById('claimedRollTotal').textContent = currentRollTotal;
-    document.getElementById('etherscanLink').href = `${CONFIG.ETHERSCAN_URL}/tx/${txHash}`;
-    
-    // Hide the NFT image for cleaner display
-    const img = document.getElementById('claimedNFTImage');
-    if (img) {
-        img.style.display = 'none';
-    }
-    
-    // Check remaining rolls after this claim
-    try {
-        const [freeRolls, paidRolls] = await distributionContract.getUserRolls(userAddress);
-        const totalRolls = Number(freeRolls.toString()) + Number(paidRolls.toString());
-        
-        console.log(`Remaining rolls after claim: ${totalRolls}`);
-        
-        // Update the modal button based on remaining rolls
-        const closeButton = document.querySelector('.close-button');
-        
-        if (totalRolls > 0) {
-            // HAS ROLLS - Let them roll again!
-            closeButton.textContent = `🎲 ROLL AGAIN (${totalRolls} roll${totalRolls > 1 ? 's' : ''} remaining)`;
-            closeButton.style.background = 'linear-gradient(135deg, #50c878 0%, #2d7a4a 100%)';
-            closeButton.style.borderColor = '#50c878';
-            closeButton.onclick = async () => {
-                console.log('User wants to roll again!');
-                document.getElementById('successModal').style.display = 'none';
-                
-                // Clear the pending claim flag since they claimed
-                hasPendingClaim = false;
-                
-                // Reset state for next roll
-                currentSchool = null;
-                currentRollTotal = 0;
-                currentHouseName = '';
-                
-                // CRITICAL: Refresh available houses from blockchain before next roll
-                console.log('Refreshing available houses from contract...');
-                availableHouses = {}; // Clear old cache
-                
-                // Go straight to school selection for next roll
-                document.getElementById('diceScreen').style.display = 'none';
-                document.getElementById('schoolScreen').style.display = 'block';
-                document.getElementById('houseResult').style.display = 'none';
-                document.getElementById('totalValue').textContent = '0';
-                
-                const spinningNumber = document.getElementById('spinningNumber');
-                if (spinningNumber) {
-                    spinningNumber.textContent = '0';
-                    spinningNumber.classList.remove('rolling', 'landing');
-                }
-                
-                showToast(`✅ ${totalRolls} roll${totalRolls > 1 ? 's' : ''} remaining! Pick your school.`, 'success');
-            };
-        } else {
-            // NO ROLLS - Prompt to buy more!
-            closeButton.textContent = '💎 BUY MORE ROLLS';
-            closeButton.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
-            closeButton.style.borderColor = '#f59e0b';
-            closeButton.onclick = () => {
-                console.log('User needs to buy more rolls');
-                document.getElementById('successModal').style.display = 'none';
-                // Clear the pending claim flag
-                hasPendingClaim = false;
-                // Go to purchase screen
-                document.getElementById('diceScreen').style.display = 'none';
-                document.getElementById('schoolScreen').style.display = 'none';
-                document.getElementById('rollsScreen').style.display = 'block';
-                document.getElementById('houseResult').style.display = 'none';
-                
-                currentSchool = null;
-                currentRollTotal = 0;
-                currentHouseName = '';
-                
-                // Show prominent message and highlight purchase section
-                showToast('💎 Out of rolls! Purchase more to keep playing!', 'warning');
-                setTimeout(() => {
-                    const purchaseSection = document.querySelector('.purchase-section');
-                    if (purchaseSection) {
-                        purchaseSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        purchaseSection.style.animation = 'pulse 1s ease-in-out 3';
-                    }
-                }, 500);
-                
-                // Reload roll counts
-                loadUserRolls();
-            };
-        }
-        
-        // Add/Update OpenSea button
-        let viewButton = document.getElementById('viewCollectionButton');
-        if (!viewButton) {
-            viewButton = document.createElement('a');
-            viewButton.id = 'viewCollectionButton';
-            viewButton.className = 'view-collection-button';
-            viewButton.href = `https://opensea.io/assets/ethereum/0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733/${tokenId}`;
-            viewButton.target = '_blank';
-            viewButton.textContent = '👀 VIEW ON OPENSEA';
-            viewButton.style.cssText = `
-                display: block;
-                margin: 20px auto 10px;
-                padding: 12px 30px;
-                background: rgba(33, 150, 243, 0.2);
-                border: 2px solid #2196F3;
-                color: #2196F3;
-                text-decoration: none;
-                border-radius: 8px;
-                font-weight: bold;
-                transition: all 0.3s ease;
-            `;
-            viewButton.onmouseover = function() {
-                this.style.background = 'rgba(33, 150, 243, 0.3)';
-            };
-            viewButton.onmouseout = function() {
-                this.style.background = 'rgba(33, 150, 243, 0.2)';
-            };
-            
-            const modalContent = document.querySelector('.modal-content');
-            modalContent.insertBefore(viewButton, closeButton);
-        } else {
-            viewButton.href = `https://opensea.io/assets/ethereum/0x4AD94fb8b87A1aD3F7D52A406c64B56dB3Af0733/${tokenId}`;
-        }
+        // Refresh rolls
+        await loadUserRolls();
         
     } catch (error) {
-        console.error('Error checking remaining rolls:', error);
-        // Default to purchase flow if error
-        const closeButton = document.querySelector('.close-button');
-        closeButton.textContent = '💎 BUY MORE ROLLS';
-        closeButton.onclick = () => {
-            document.getElementById('successModal').style.display = 'none';
-            hasPendingClaim = false;
-            resetToRollsScreen();
-        };
+        console.error('Error claiming Winion:', error);
+        showToast('Error claiming Winion. Please try again.', 'error');
     }
-    
-    document.getElementById('successModal').style.display = 'flex';
 }
 
-function resetToRollsScreen() {
-    // Reset to rolls/purchase screen
-    console.log('Resetting to rolls screen...');
-    
-    // Clear pending claim when going back to purchase
-    clearPendingClaim();
-    
-    document.getElementById('successModal').style.display = 'none';
-    document.getElementById('diceScreen').style.display = 'none';
-    document.getElementById('schoolScreen').style.display = 'none';
-    document.getElementById('houseResult').style.display = 'none';
-    document.getElementById('rollsScreen').style.display = 'block';
-    document.getElementById('totalValue').textContent = '0';
-    
-    const spinningNumber = document.getElementById('spinningNumber');
-    if (spinningNumber) {
-        spinningNumber.textContent = '0';
-        spinningNumber.classList.remove('rolling', 'landing');
-    }
-    
-    currentSchool = null;
-    currentRollTotal = 0;
-    currentHouseName = '';
-    
-    // Reload roll counts to show updated info
-    loadUserRolls();
-}
-
-// Toast notification system
+// Show toast notification
 function showToast(message, type = 'info') {
-    // Create toast container if it doesn't exist
-    let toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toastContainer';
-        toastContainer.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        `;
-        document.body.appendChild(toastContainer);
-    }
-    
-    // Create toast
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    toast.textContent = message;
     
-    const icons = {
-        success: '✅',
-        error: '❌',
-        warning: '⚠️',
-        info: 'ℹ️'
-    };
+    document.body.appendChild(toast);
     
-    const colors = {
-        success: '#10b981',
-        error: '#ef4444',
-        warning: '#f59e0b',
-        info: '#3b82f6'
-    };
-    
-    toast.innerHTML = `
-        <span style="font-size: 20px;">${icons[type]}</span>
-        <span>${message}</span>
-    `;
-    
-    toast.style.cssText = `
-        background: rgba(0, 0, 0, 0.95);
-        backdrop-filter: blur(10px);
-        border: 2px solid ${colors[type]};
-        border-radius: 12px;
-        padding: 16px 24px;
-        color: white;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        box-shadow: 0 0 20px ${colors[type]}40;
-        animation: slideIn 0.3s ease-out;
-        max-width: 400px;
-        font-size: 14px;
-        font-weight: 500;
-    `;
-    
-    // Add animation styles if not already present
-    if (!document.getElementById('toastStyles')) {
-        const style = document.createElement('style');
-        style.id = 'toastStyles';
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-            @keyframes slideOut {
-                to {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-            }
-            @keyframes pulse {
-                0%, 100% { transform: scale(1); opacity: 1; }
-                50% { transform: scale(1.05); opacity: 0.8; }
-            }
-            @media (max-width: 768px) {
-                #toastContainer {
-                    right: 10px;
-                    left: 10px;
-                    top: 10px;
-                }
-                .toast {
-                    max-width: 100% !important;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    toastContainer.appendChild(toast);
-    
-    // Auto remove after 5 seconds
     setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease-in forwards';
+        toast.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
         setTimeout(() => {
-            toast.remove();
+            document.body.removeChild(toast);
         }, 300);
-    }, 5000);
+    }, 3000);
 }
 
-// Event listeners for account and network changes
+// Account change listener
 if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
         if (accounts.length === 0) {
+            // User disconnected
             location.reload();
         } else {
-            userAddress = accounts[0];
-            loadUserRolls();
+            // User switched accounts
+            location.reload();
         }
     });
     
@@ -1244,37 +551,15 @@ if (window.ethereum) {
     });
 }
 
-// DEBUG: Log weighted ranges on load
-console.log('🎲 SCHOOL WEIGHTED RANGES LOADED:');
-console.log('🔥 ANARCHY:', ANARCHY_RANGES);
-console.log('🎨 MISCHIEF:', MISCHIEF_RANGES);
-console.log('🍀 LUCK:', LUCK_RANGES);
+// Prevent page refresh during pending claim
+window.addEventListener('beforeunload', (e) => {
+    if (hasPendingClaim) {
+        e.preventDefault();
+        e.returnValue = 'You have an unclaimed Winion! Are you sure you want to leave?';
+        return e.returnValue;
+    }
+});
 
-// DEBUG: Manual reset function to clear ALL localStorage
-window.resetWinionsApp = function() {
-    console.log('🔄 MANUAL RESET INITIATED');
-    
-    // Clear all Winions localStorage
-    localStorage.removeItem('winions_pending_claim');
-    localStorage.removeItem('winions_version');
-    
-    // Reset in-memory state
-    hasPendingClaim = false;
-    currentSchool = null;
-    currentRollTotal = 0;
-    currentHouseName = '';
-    availableHouses = {};
-    
-    console.log('✅ All data cleared!');
-    console.log('✅ In-memory state reset!');
-    console.log('🔄 Reloading page...');
-    
-    // Reload page for fresh start
-    setTimeout(() => {
-        location.reload();
-    }, 1000);
-    
-    return 'Resetting...';
-};
-
-console.log('💡 DEBUG FUNCTION: resetWinionsApp() - Clear ALL data and reload');
+console.log('✅ Winions Dice Roller Loaded (v3 with School Tracking)');
+console.log('🎲 Weighted School System Active');
+console.log('📊 School Analytics Tracking Enabled');
