@@ -1,4 +1,4 @@
-// Winions Dice Roller - FINAL COMPLETE
+// Winions Dice Roller - FINAL COMPLETE WITH SCHOOL-WEIGHTED RANGES
 // Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
 // AUDIO - Winions Theme (loops continuously)
@@ -17,23 +17,74 @@ let availableHouses = {};
 let hasPendingClaim = false; // Track if user has unclaimed roll
 
 // LOCALSTORAGE VERSION - Increment this to clear old data
-const LOCALSTORAGE_VERSION = 2; // Incremented to clear old pending claims
+const LOCALSTORAGE_VERSION = 3; // Incremented for new weighted ranges
 
-const HOUSE_RANGES = {
-    'House of Havoc': { min: 66, max: 99 },
-    'House of Misfits': { min: 100, max: 132 },
-    'House of Frog': { min: 133, max: 165 },
-    'House of Theory': { min: 166, max: 198 },
-    'House of Spectrum': { min: 199, max: 231 },
-    'House of Clay': { min: 232, max: 264 },
-    'House of Stencil': { min: 265, max: 297 },
-    'House of Royal': { min: 298, max: 330 },
-    'House of Shadows': { min: 331, max: 363 },
-    'House of Hellish': { min: 364, max: 385 },
-    'House of Hologram': { min: 386, max: 392 },
-    'House of Gold': { min: 393, max: 395 },
-    'House of Death': { min: 396, max: 396 }
+// 🎲 SCHOOL-SPECIFIC WEIGHTED DICE RANGES
+// Each school has 75% commons (Havoc + Misfits), 25% rares
+// Rares are WEIGHTED towards specific houses per school
+
+// 🔥 ANARCHY School - Weighted towards: Hellish, Frog, Shadows
+const ANARCHY_RANGES = {
+    'House of Havoc': { min: 66, max: 250 },      // 185 rolls = 55.9% (COMMONS)
+    'House of Misfits': { min: 251, max: 313 },   // 63 rolls = 19.0% (COMMONS)
+    // COMMONS TOTAL: 248 rolls = 74.9% ✅
+    'House of Frog': { min: 314, max: 333 },      // 20 rolls = 6.0% ⬆️ BOOSTED
+    'House of Shadows': { min: 334, max: 348 },   // 15 rolls = 4.5% ⬆️ BOOSTED
+    'House of Hellish': { min: 349, max: 358 },   // 10 rolls = 3.0% ⬆️ BOOSTED
+    'House of Theory': { min: 359, max: 364 },    // 6 rolls = 1.8%
+    'House of Spectrum': { min: 365, max: 370 },  // 6 rolls = 1.8%
+    'House of Clay': { min: 371, max: 376 },      // 6 rolls = 1.8%
+    'House of Stencil': { min: 377, max: 382 },   // 6 rolls = 1.8%
+    'House of Hologram': { min: 383, max: 388 },  // 6 rolls = 1.8%
+    'House of Gold': { min: 389, max: 396 }       // 8 rolls = 2.4%
 };
+
+// 🎨 MISCHIEF School - Weighted towards: Clay, Spectrum, Gold
+const MISCHIEF_RANGES = {
+    'House of Havoc': { min: 66, max: 250 },      // 185 rolls = 55.9% (COMMONS)
+    'House of Misfits': { min: 251, max: 313 },   // 63 rolls = 19.0% (COMMONS)
+    // COMMONS TOTAL: 248 rolls = 74.9% ✅
+    'House of Spectrum': { min: 314, max: 333 },  // 20 rolls = 6.0% ⬆️ BOOSTED
+    'House of Clay': { min: 334, max: 348 },      // 15 rolls = 4.5% ⬆️ BOOSTED
+    'House of Gold': { min: 349, max: 358 },      // 10 rolls = 3.0% ⬆️ BOOSTED
+    'House of Frog': { min: 359, max: 364 },      // 6 rolls = 1.8%
+    'House of Theory': { min: 365, max: 370 },    // 6 rolls = 1.8%
+    'House of Stencil': { min: 371, max: 376 },   // 6 rolls = 1.8%
+    'House of Shadows': { min: 377, max: 382 },   // 6 rolls = 1.8%
+    'House of Hellish': { min: 383, max: 388 },   // 6 rolls = 1.8%
+    'House of Hologram': { min: 389, max: 396 }   // 8 rolls = 2.4%
+};
+
+// 🍀 LUCK School - Weighted towards: Hologram, Stencil, Theory
+const LUCK_RANGES = {
+    'House of Havoc': { min: 66, max: 250 },      // 185 rolls = 55.9% (COMMONS)
+    'House of Misfits': { min: 251, max: 313 },   // 63 rolls = 19.0% (COMMONS)
+    // COMMONS TOTAL: 248 rolls = 74.9% ✅
+    'House of Stencil': { min: 314, max: 333 },   // 20 rolls = 6.0% ⬆️ BOOSTED
+    'House of Theory': { min: 334, max: 348 },    // 15 rolls = 4.5% ⬆️ BOOSTED
+    'House of Hologram': { min: 349, max: 358 },  // 10 rolls = 3.0% ⬆️ BOOSTED
+    'House of Frog': { min: 359, max: 364 },      // 6 rolls = 1.8%
+    'House of Spectrum': { min: 365, max: 370 },  // 6 rolls = 1.8%
+    'House of Clay': { min: 371, max: 376 },      // 6 rolls = 1.8%
+    'House of Shadows': { min: 377, max: 382 },   // 6 rolls = 1.8%
+    'House of Hellish': { min: 383, max: 388 },   // 6 rolls = 1.8%
+    'House of Gold': { min: 389, max: 396 }       // 8 rolls = 2.4%
+};
+
+// Helper function to get the correct ranges based on selected school
+function getCurrentRanges() {
+    switch(currentSchool) {
+        case 'anarchy':
+            return ANARCHY_RANGES;
+        case 'mischief':
+            return MISCHIEF_RANGES;
+        case 'luck':
+            return LUCK_RANGES;
+        default:
+            console.warn('No school selected, using ANARCHY as default');
+            return ANARCHY_RANGES;
+    }
+}
 
 // CRITICAL: Check localStorage version and clear old data if needed
 function checkLocalStorageVersion() {
@@ -51,7 +102,7 @@ function checkLocalStorageVersion() {
         localStorage.setItem('winions_version', LOCALSTORAGE_VERSION.toString());
         
         console.log('✅ localStorage cleared and updated to new version');
-        showToast('🔄 App updated! Old data cleared for fresh start.', 'info');
+        showToast('🔄 App updated! New weighted dice system enabled!', 'info');
     } else {
         console.log(`✅ localStorage version ${LOCALSTORAGE_VERSION} - up to date`);
     }
@@ -486,6 +537,10 @@ async function selectSchool(school) {
     }
     
     currentSchool = school;
+    
+    console.log(`🎲 School selected: ${school.toUpperCase()}`);
+    console.log(`Using ${school.toUpperCase()} weighted ranges`);
+    
     document.getElementById('schoolScreen').style.display = 'none';
     document.getElementById('diceScreen').style.display = 'block';
     document.getElementById('chosenSchool').textContent = school.toUpperCase();
@@ -525,10 +580,13 @@ async function checkAvailableHouses() {
     try {
         availableHouses = {};
         
-        console.log('🔍 Checking all 13 houses for NFTs...');
+        console.log('🔍 Checking all houses for NFTs...');
         console.log('Contract address:', CONFIG.DISTRIBUTION_CONTRACT);
         
-        for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
+        // Use current school's ranges for checking
+        const currentRanges = getCurrentRanges();
+        
+        for (const [houseName, range] of Object.entries(currentRanges)) {
             try {
                 console.log(`Checking ${houseName}...`);
                 
@@ -663,6 +721,8 @@ function generateSmartDiceRolls() {
     const randomHouse = availableHousesList[Math.floor(Math.random() * availableHousesList.length)];
     const target = Math.floor(Math.random() * (randomHouse.range.max - randomHouse.range.min + 1)) + randomHouse.range.min;
     
+    console.log(`🎲 Generated roll: ${target} → ${randomHouse.range.min}-${randomHouse.range.max}`);
+    
     return target;
 }
 
@@ -742,6 +802,8 @@ function revealHouse(total) {
     const houseName = getHouseFromRoll(total);
     currentHouseName = houseName;
     
+    console.log(`🏠 Rolled ${total} → ${houseName}`);
+    
     if (!availableHouses[houseName]) {
         console.error(`ERROR: Rolled into ${houseName} with 0 NFTs!`);
         showToast('⚠️ Error: Rolled into house with no NFTs. Please try again.', 'error');
@@ -789,7 +851,10 @@ function revealHouse(total) {
 }
 
 function getHouseFromRoll(total) {
-    for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
+    // Use the current school's ranges
+    const currentRanges = getCurrentRanges();
+    
+    for (const [houseName, range] of Object.entries(currentRanges)) {
         if (total >= range.min && total <= range.max) {
             return houseName;
         }
@@ -917,31 +982,6 @@ async function showSuccessModal(tokenId, txHash) {
                 // CRITICAL: Refresh available houses from blockchain before next roll
                 console.log('Refreshing available houses from contract...');
                 availableHouses = {}; // Clear old cache
-                
-                try {
-                    for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
-                        const count = await distributionContract.getHouseInventoryCount(houseName);
-                        const countNum = Number(count.toString());
-                        if (countNum > 0) {
-                            availableHouses[houseName] = {
-                                count: countNum,
-                                range: range
-                            };
-                            console.log(`✅ ${houseName}: ${countNum} NFTs available`);
-                        }
-                    }
-                    console.log(`Total houses with NFTs: ${Object.keys(availableHouses).length}`);
-                } catch (error) {
-                    console.error('Error refreshing houses:', error);
-                    showToast('Error loading NFT inventory. Please try again.', 'error');
-                    return;
-                }
-                
-                // Check if any houses have NFTs
-                if (Object.keys(availableHouses).length === 0) {
-                    showToast('⚠️ No NFTs available in any house! Please contact admin.', 'error');
-                    return;
-                }
                 
                 // Go straight to school selection for next roll
                 document.getElementById('diceScreen').style.display = 'none';
@@ -1194,32 +1234,11 @@ if (window.ethereum) {
     });
 }
 
-// DEBUG: Test function to manually check contract
-window.testHouseInventory = async function(houseName) {
-    if (!distributionContract) {
-        console.error('Contract not initialized! Connect wallet first.');
-        return;
-    }
-    
-    try {
-        console.log(`Testing ${houseName}...`);
-        const count = await distributionContract.getHouseInventoryCount(houseName);
-        console.log('Raw count:', count);
-        console.log('As number:', Number(count.toString()));
-        
-        const inventory = await distributionContract.getHouseInventory(houseName);
-        console.log('Full inventory:', inventory);
-        console.log('Token IDs:', inventory.map(id => id.toString()));
-        
-        return {
-            count: Number(count.toString()),
-            tokenIds: inventory.map(id => id.toString())
-        };
-    } catch (error) {
-        console.error('Test failed:', error);
-        return null;
-    }
-};
+// DEBUG: Log weighted ranges on load
+console.log('🎲 SCHOOL WEIGHTED RANGES LOADED:');
+console.log('🔥 ANARCHY:', ANARCHY_RANGES);
+console.log('🎨 MISCHIEF:', MISCHIEF_RANGES);
+console.log('🍀 LUCK:', LUCK_RANGES);
 
 // DEBUG: Manual reset function to clear ALL localStorage
 window.resetWinionsApp = function() {
@@ -1248,6 +1267,4 @@ window.resetWinionsApp = function() {
     return 'Resetting...';
 };
 
-console.log('💡 DEBUG FUNCTIONS:');
-console.log('  - testHouseInventory("House of Havoc") - Test house inventory');
-console.log('  - resetWinionsApp() - Clear ALL data and reload');
+console.log('💡 DEBUG FUNCTION: resetWinionsApp() - Clear ALL data and reload');
