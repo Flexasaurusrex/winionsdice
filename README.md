@@ -1,4 +1,4 @@
-# Winions Dice Roller
+# Winions Dice Roller!
 
 A 66d6 dice rolling system to determine which House your Winion belongs to.
 
