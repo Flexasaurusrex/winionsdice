@@ -1,6 +1,11 @@
 // Winions Dice Roller - FINAL COMPLETE
 // Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
+// AUDIO - Winions Theme (loops continuously)
+const rollAudio = new Audio('Winions Theme.mp3');
+rollAudio.volume = 0.5; // 50% volume (adjust 0.0 to 1.0)
+rollAudio.loop = true; // Loop forever!
+
 let provider;
 let signer;
 let userAddress;
@@ -270,7 +275,7 @@ async function loadUserRolls() {
             continueButton.textContent = '🚫 CLAIM YOUR WINION FIRST';
             continueButton.style.background = 'linear-gradient(135deg, #ff4444 0%, #cc0000 100%)';
             continueButton.style.borderColor = '#ff0000';
-            continueButton.style.cursor = 'pointer'; // Make it clickable!
+            continueButton.style.cursor = 'pointer';
             continueButton.style.animation = 'pulse 1.5s ease-in-out infinite';
             console.log('⚠️ User has pending claim - Continue button will restore claim screen');
         } else {
@@ -662,6 +667,10 @@ function generateSmartDiceRolls() {
 }
 
 async function rollDice() {
+    // 🎵 PLAY AUDIO - Loops continuously!
+    rollAudio.currentTime = 0; // Reset to start
+    rollAudio.play().catch(err => console.log('Audio blocked:', err));
+    
     // TRIPLE CHECK: Block if there's an unclaimed Winion
     if (hasPendingClaim) {
         showToast('⚠️ YOU CANNOT ROLL AGAIN! CLAIM YOUR PREVIOUS WINION FIRST!', 'error');
