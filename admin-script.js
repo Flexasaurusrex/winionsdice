@@ -650,6 +650,7 @@ async function addSingleToWhitelist() {
         
         await tx.wait();
         
+        saveToWhitelistRecord(address);
         addLog('Added to whitelist successfully', 'success');
         document.getElementById('whitelistAddress').value = '';
         document.getElementById('freeRolls').value = '3';
@@ -698,6 +699,8 @@ async function batchAddToWhitelist() {
         addLog('Transaction sent, waiting for confirmation...', 'info');
         
         await tx.wait();
+        // Save all addresses to local whitelist record
+        addresses.forEach(addr => saveToWhitelistRecord(addr));
         
         addLog(`Successfully added ${addresses.length} addresses to whitelist`, 'success');
         document.getElementById('batchWhitelist').value = '';
@@ -984,3 +987,160 @@ if (window.ethereum) {
 
 console.log('✅ Winions Admin Panel Script Loaded');
 console.log('📋 Make sure token-mapping.js, config.js, and contract-abi.js are loaded first!');
+
+// ========================================
+// SCHOOL ANALYTICS FUNCTIONS
+// ========================================
+
+// Load school selection analytics from localStorage
+function loadSchoolAnalytics() {
+    try {
+        const anarchyCount = parseInt(localStorage.getItem('winions_school_anarchy') || '0');
+        const mischiefCount = parseInt(localStorage.getItem('winions_school_mischief') || '0');
+        const luckCount = parseInt(localStorage.getItem('winions_school_luck') || '0');
+        
+        document.getElementById('anarchyCount').textContent = anarchyCount;
+        document.getElementById('mischiefCount').textContent = mischiefCount;
+        document.getElementById('luckCount').textContent = luckCount;
+        
+        const total = anarchyCount + mischiefCount + luckCount;
+        addLog(`📊 Analytics loaded: ${total} total school selections`, 'success');
+        
+        console.log('🎲 School Analytics:', {
+            anarchy: anarchyCount,
+            mischief: mischiefCount,
+            luck: luckCount,
+            total: total
+        });
+        
+    } catch (error) {
+        console.error('Error loading school analytics:', error);
+        addLog(`Error loading analytics: ${error.message}`, 'error');
+    }
+}
+
+// Reset school analytics counters
+function resetSchoolAnalytics() {
+    if (!confirm('Are you sure you want to reset all school analytics? This cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        localStorage.setItem('winions_school_anarchy', '0');
+        localStorage.setItem('winions_school_mischief', '0');
+        localStorage.setItem('winions_school_luck', '0');
+        
+        document.getElementById('anarchyCount').textContent = '0';
+        document.getElementById('mischiefCount').textContent = '0';
+        document.getElementById('luckCount').textContent = '0';
+        
+        addLog('🗑️ School analytics reset', 'success');
+        console.log('✅ School analytics counters reset');
+        
+    } catch (error) {
+        console.error('Error resetting analytics:', error);
+        addLog(`Error: ${error.message}`, 'error');
+    }
+}
+
+// ========================================
+// WHITELIST VIEWER FUNCTIONS
+// ========================================
+
+// Save address to local whitelist record when adding
+function saveToWhitelistRecord(address) {
+    try {
+        let whitelist = JSON.parse(localStorage.getItem('winions_whitelist_addresses') || '[]');
+        
+        // Add if not already in list
+        if (!whitelist.includes(address.toLowerCase())) {
+            whitelist.push(address.toLowerCase());
+            localStorage.setItem('winions_whitelist_addresses', JSON.stringify(whitelist));
+            console.log(`✅ Added ${address} to local whitelist record`);
+        }
+    } catch (error) {
+        console.error('Error saving to whitelist record:', error);
+    }
+}
+
+// Load and display all whitelisted addresses with their roll counts
+async function loadWhitelistAddresses() {
+    try {
+        addLog('Loading whitelist addresses...', 'info');
+        
+        const whitelist = JSON.parse(localStorage.getItem('winions_whitelist_addresses') || '[]');
+        
+        if (whitelist.length === 0) {
+            addLog('No addresses in whitelist record. Add addresses through "Manage Whitelist" first.', 'info');
+            return;
+        }
+        
+        document.getElementById('whitelistTotal').textContent = whitelist.length;
+        
+        const tableHTML = `
+            <table class="whitelist-table">
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Free Rolls</th>
+                        <th>Paid Rolls</th>
+                        <th>Total Rolls</th>
+                    </tr>
+                </thead>
+                <tbody id="whitelistTableBody">
+                    <tr><td colspan="4" style="text-align: center; color: #ccc;">Loading...</td></tr>
+                </tbody>
+            </table>
+        `;
+        
+        document.getElementById('whitelistTable').innerHTML = tableHTML;
+        document.getElementById('whitelistViewerResults').style.display = 'block';
+        
+        // Load roll data for each address
+        const tbody = document.getElementById('whitelistTableBody');
+        tbody.innerHTML = '';
+        
+        for (const address of whitelist) {
+            try {
+                const [freeRolls, paidRolls] = await distributionContract.getUserRolls(address);
+                const free = Number(freeRolls.toString());
+                const paid = Number(paidRolls.toString());
+                const total = free + paid;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-family: monospace;">${address.slice(0, 10)}...${address.slice(-8)}</td>
+                    <td style="color: ${free > 0 ? '#00ff00' : '#666'};"><strong>${free}</strong></td>
+                    <td style="color: ${paid > 0 ? '#4a90e2' : '#666'};"><strong>${paid}</strong></td>
+                    <td style="color: ${total > 0 ? '#ffd700' : '#666'};"><strong>${total}</strong></td>
+                `;
+                tbody.appendChild(row);
+                
+            } catch (error) {
+                console.error(`Error loading rolls for ${address}:`, error);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-family: monospace;">${address.slice(0, 10)}...${address.slice(-8)}</td>
+                    <td colspan="3" style="color: #ff4444;">Error loading data</td>
+                `;
+                tbody.appendChild(row);
+            }
+        }
+        
+        addLog(`✅ Loaded ${whitelist.length} whitelisted addresses`, 'success');
+        
+    } catch (error) {
+        console.error('Error loading whitelist:', error);
+        addLog(`Error: ${error.message}`, 'error');
+    }
+}
+
+// Load analytics on page load
+window.addEventListener('load', () => {
+    // Load school analytics if admin panel is visible
+    setTimeout(() => {
+        if (document.getElementById('adminPanel').style.display !== 'none') {
+            loadSchoolAnalytics();
+        }
+    }, 1000);
+});
