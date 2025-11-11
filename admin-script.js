@@ -1,5 +1,4 @@
-// Winions Admin Panel Script - CORRECTED TO MATCH YOUR CONTRACT
-// Fixed all function names to match your actual contract ABI
+// Winions Admin Panel Script - WITH BLOCKCHAIN IMPORT FEATURE
 
 let provider;
 let signer;
@@ -23,10 +22,10 @@ document.getElementById('connectAdminBtn').addEventListener('click', async () =>
         provider = new ethers.BrowserProvider(window.ethereum);
         signer = await provider.getSigner();
         
-        // Initialize contracts - USING YOUR CONTRACT_ABI
+        // Initialize contracts
         distributionContract = new ethers.Contract(
             CONFIG.DISTRIBUTION_CONTRACT,
-            CONTRACT_ABI,  // ← YOUR VARIABLE NAME
+            CONTRACT_ABI,
             signer
         );
         
@@ -95,7 +94,7 @@ async function refreshStatus() {
         document.getElementById('contractBalance').textContent = 
             `${ethers.formatEther(balance)} ETH`;
         
-        // Count NFTs in contract (quick check)
+        // Count NFTs in contract
         document.getElementById('totalNFTs').textContent = 'Counting...';
         countContractNFTs();
         
@@ -138,14 +137,13 @@ async function countContractNFTs() {
     }
 }
 
-// Toggle Distribution - YOUR CONTRACT USES toggleDistribution()
+// Toggle Distribution
 async function toggleDistribution() {
     try {
         const isActive = await distributionContract.distributionActive();
         
         addLog(isActive ? 'Deactivating distribution...' : 'Activating distribution...', 'info');
         
-        // YOUR CONTRACT: toggleDistribution() - no parameters
         const tx = await distributionContract.toggleDistribution();
         addLog('Transaction sent, waiting for confirmation...', 'info');
         
@@ -191,7 +189,6 @@ async function checkMyNFTs() {
     try {
         addLog('Checking your NFT ownership...', 'info');
         
-        // Check tokens 480-666 (Winions range)
         const ownedTokens = [];
         const batchSize = 20;
         
@@ -238,10 +235,8 @@ async function checkMyNFTs() {
             return;
         }
         
-        // Create display
         let html = `<p style="color: #00ff00; margin-bottom: 20px;"><strong>You own ${ownedTokens.length} Winions!</strong></p>`;
         
-        // Sort houses by count
         const sortedHouses = Object.entries(byHouse).sort((a, b) => b[1].length - a[1].length);
         
         sortedHouses.forEach(([house, tokens]) => {
@@ -262,7 +257,6 @@ async function checkMyNFTs() {
         
         listDiv.innerHTML = html;
         
-        // Summary
         const havocCount = byHouse['House of Havoc']?.length || 0;
         const misfitsCount = byHouse['House of Misfits']?.length || 0;
         const commonsCount = havocCount + misfitsCount;
@@ -393,7 +387,7 @@ async function lookupUser() {
     }
 }
 
-// Update User Whitelist - YOUR CONTRACT: updateWhitelist(address, uint256)
+// Update User Whitelist
 async function updateUserWhitelist() {
     try {
         const address = document.getElementById('lookupAddr').textContent;
@@ -403,7 +397,6 @@ async function updateUserWhitelist() {
         
         addLog(`Updating whitelist for ${address}...`, 'info');
         
-        // YOUR CONTRACT: updateWhitelist(address user, uint256 freeRolls)
         const tx = await distributionContract.updateWhitelist(address, parseInt(rolls));
         addLog('Transaction sent, waiting for confirmation...', 'info');
         
@@ -427,7 +420,6 @@ async function removeFromWhitelist() {
         
         addLog(`Removing ${address} from whitelist...`, 'info');
         
-        // Set free rolls to 0
         const tx = await distributionContract.updateWhitelist(address, 0);
         addLog('Transaction sent, waiting for confirmation...', 'info');
         
@@ -448,8 +440,6 @@ async function checkContractNFTs() {
         addLog('Checking contract NFT holdings...', 'info');
         
         const contractAddress = CONFIG.DISTRIBUTION_CONTRACT;
-        
-        // Check tokens 480-666 (Winions range)
         const ownedTokens = [];
         const batchSize = 20;
         
@@ -475,7 +465,7 @@ async function checkContractNFTs() {
             addLog(`Checked tokens ${start}-${end}...`, 'info');
         }
         
-        // Group by house using CSV mapping
+        // Group by house
         const byHouse = {};
         ownedTokens.forEach(tokenId => {
             const house = getHouseFromTokenId(tokenId);
@@ -485,7 +475,6 @@ async function checkContractNFTs() {
             byHouse[house].push(tokenId);
         });
         
-        // Display results
         const resultsDiv = document.getElementById('contractNFTResults');
         const listDiv = document.getElementById('contractNFTList');
         const summaryDiv = document.getElementById('contractNFTSummary');
@@ -498,10 +487,8 @@ async function checkContractNFTs() {
             return;
         }
         
-        // Create display
         let html = `<p style="color: #00ff00; margin-bottom: 20px;"><strong>Total: ${ownedTokens.length} NFTs</strong></p>`;
         
-        // Sort houses by count
         const sortedHouses = Object.entries(byHouse).sort((a, b) => b[1].length - a[1].length);
         
         sortedHouses.forEach(([house, tokens]) => {
@@ -530,7 +517,6 @@ async function checkContractNFTs() {
         
         listDiv.innerHTML = html;
         
-        // Summary
         summaryDiv.innerHTML = `
             <p style="color: #ffd700;"><strong>Summary:</strong></p>
             <p style="color: #ccc;">
@@ -626,7 +612,7 @@ async function addToHouseInventory() {
     }
 }
 
-// Add Single to Whitelist - YOUR CONTRACT: addToWhitelist(address[], uint256[])
+// Add Single to Whitelist
 async function addSingleToWhitelist() {
     try {
         const address = document.getElementById('whitelistAddress').value;
@@ -644,7 +630,6 @@ async function addSingleToWhitelist() {
         
         addLog(`Adding ${address} to whitelist with ${rolls} rolls...`, 'info');
         
-        // YOUR CONTRACT: addToWhitelist takes ARRAYS
         const tx = await distributionContract.addToWhitelist([address], [rolls]);
         addLog('Transaction sent, waiting for confirmation...', 'info');
         
@@ -661,7 +646,7 @@ async function addSingleToWhitelist() {
     }
 }
 
-// Batch Add to Whitelist - YOUR CONTRACT: addToWhitelist(address[], uint256[])
+// Batch Add to Whitelist
 async function batchAddToWhitelist() {
     try {
         const input = document.getElementById('batchWhitelist').value;
@@ -694,12 +679,11 @@ async function batchAddToWhitelist() {
         
         addLog(`Adding ${addresses.length} addresses to whitelist...`, 'info');
         
-        // YOUR CONTRACT: addToWhitelist(address[], uint256[])
         const tx = await distributionContract.addToWhitelist(addresses, rolls);
         addLog('Transaction sent, waiting for confirmation...', 'info');
         
         await tx.wait();
-        // Save all addresses to local whitelist record
+        
         addresses.forEach(addr => saveToWhitelistRecord(addr));
         
         addLog(`Successfully added ${addresses.length} addresses to whitelist`, 'success');
@@ -711,7 +695,7 @@ async function batchAddToWhitelist() {
     }
 }
 
-// Batch Remove from Whitelist - Uses updateWhitelist with 0 rolls
+// Batch Remove from Whitelist
 async function batchRemoveFromWhitelist() {
     try {
         const input = document.getElementById('batchRemoveWhitelist').value;
@@ -737,7 +721,6 @@ async function batchRemoveFromWhitelist() {
             }
             
             try {
-                // Use updateWhitelist with 0 rolls
                 const tx = await distributionContract.updateWhitelist(address, 0);
                 await tx.wait();
                 successCount++;
@@ -871,19 +854,16 @@ async function bulkUpdatePrices() {
         
         addLog('Updating all prices (3 transactions)...', 'info');
         
-        // Single
         let tx = await distributionContract.setSingleRollPrice(ethers.parseEther(single));
         addLog('1/3 Transaction sent...', 'info');
         await tx.wait();
         addLog('1/3 Single price updated', 'success');
         
-        // Three
         tx = await distributionContract.setThreeRollPrice(ethers.parseEther(three));
         addLog('2/3 Transaction sent...', 'info');
         await tx.wait();
         addLog('2/3 Three-roll price updated', 'success');
         
-        // Five
         tx = await distributionContract.setFiveRollPrice(ethers.parseEther(five));
         addLog('3/3 Transaction sent...', 'info');
         await tx.wait();
@@ -968,31 +948,15 @@ function addLog(message, type = 'info') {
     
     log.insertBefore(entry, log.firstChild);
     
-    // Keep only last 50 entries
     while (log.children.length > 50) {
         log.removeChild(log.lastChild);
     }
 }
 
-// Account change listener
-if (window.ethereum) {
-    window.ethereum.on('accountsChanged', (accounts) => {
-        location.reload();
-    });
-    
-    window.ethereum.on('chainChanged', () => {
-        location.reload();
-    });
-}
-
-console.log('✅ Winions Admin Panel Script Loaded');
-console.log('📋 Make sure token-mapping.js, config.js, and contract-abi.js are loaded first!');
-
 // ========================================
 // SCHOOL ANALYTICS FUNCTIONS
 // ========================================
 
-// Load school selection analytics from localStorage
 function loadSchoolAnalytics() {
     try {
         const anarchyCount = parseInt(localStorage.getItem('winions_school_anarchy') || '0');
@@ -1019,7 +983,6 @@ function loadSchoolAnalytics() {
     }
 }
 
-// Reset school analytics counters
 function resetSchoolAnalytics() {
     if (!confirm('Are you sure you want to reset all school analytics? This cannot be undone.')) {
         return;
@@ -1047,12 +1010,10 @@ function resetSchoolAnalytics() {
 // WHITELIST VIEWER FUNCTIONS
 // ========================================
 
-// Save address to local whitelist record when adding
 function saveToWhitelistRecord(address) {
     try {
         let whitelist = JSON.parse(localStorage.getItem('winions_whitelist_addresses') || '[]');
         
-        // Add if not already in list
         if (!whitelist.includes(address.toLowerCase())) {
             whitelist.push(address.toLowerCase());
             localStorage.setItem('winions_whitelist_addresses', JSON.stringify(whitelist));
@@ -1063,7 +1024,6 @@ function saveToWhitelistRecord(address) {
     }
 }
 
-// Load and display all whitelisted addresses with their roll counts
 async function loadWhitelistAddresses() {
     try {
         addLog('Loading whitelist addresses...', 'info');
@@ -1071,7 +1031,7 @@ async function loadWhitelistAddresses() {
         const whitelist = JSON.parse(localStorage.getItem('winions_whitelist_addresses') || '[]');
         
         if (whitelist.length === 0) {
-            addLog('No addresses in whitelist record. Add addresses through "Manage Whitelist" first.', 'info');
+            addLog('No addresses in local storage. Use "Import from Contract" to scan blockchain.', 'info');
             return;
         }
         
@@ -1096,7 +1056,6 @@ async function loadWhitelistAddresses() {
         document.getElementById('whitelistTable').innerHTML = tableHTML;
         document.getElementById('whitelistViewerResults').style.display = 'block';
         
-        // Load roll data for each address
         const tbody = document.getElementById('whitelistTableBody');
         tbody.innerHTML = '';
         
@@ -1135,12 +1094,167 @@ async function loadWhitelistAddresses() {
     }
 }
 
+// ========================================
+// BLOCKCHAIN IMPORT FUNCTION - THE NEW FEATURE!
+// ========================================
+
+async function importWhitelistFromContract() {
+    const progressDiv = document.getElementById('importProgress');
+    const statusDiv = document.getElementById('importStatus');
+    const progressBar = document.getElementById('importProgressBar');
+    
+    try {
+        // Show progress UI
+        progressDiv.style.display = 'block';
+        statusDiv.textContent = '🔍 Querying blockchain for WhitelistUpdated events...';
+        progressBar.style.width = '10%';
+        progressBar.textContent = '10%';
+        
+        addLog('🔄 Starting blockchain scan for whitelisted addresses...', 'info');
+        
+        // Get contract deployment block (you can adjust this)
+        const currentBlock = await provider.getBlockNumber();
+        const fromBlock = currentBlock - 500000; // Scan last ~500k blocks (~70 days)
+        
+        statusDiv.textContent = `📡 Scanning blocks ${fromBlock} to ${currentBlock}...`;
+        progressBar.style.width = '25%';
+        progressBar.textContent = '25%';
+        
+        // Query WhitelistUpdated events
+        const filter = distributionContract.filters.WhitelistUpdated();
+        
+        addLog(`Scanning ${currentBlock - fromBlock} blocks...`, 'info');
+        
+        const events = await distributionContract.queryFilter(filter, fromBlock, currentBlock);
+        
+        statusDiv.textContent = `✅ Found ${events.length} WhitelistUpdated events!`;
+        progressBar.style.width = '50%';
+        progressBar.textContent = '50%';
+        
+        addLog(`Found ${events.length} whitelist events`, 'success');
+        
+        // Extract unique addresses
+        const addressSet = new Set();
+        events.forEach(event => {
+            addressSet.add(event.args.user.toLowerCase());
+        });
+        
+        const uniqueAddresses = Array.from(addressSet);
+        
+        statusDiv.textContent = `📝 Found ${uniqueAddresses.length} unique addresses. Checking current roll counts...`;
+        progressBar.style.width = '60%';
+        progressBar.textContent = '60%';
+        
+        addLog(`Extracting ${uniqueAddresses.length} unique addresses...`, 'info');
+        
+        // Save all addresses to localStorage
+        localStorage.setItem('winions_whitelist_addresses', JSON.stringify(uniqueAddresses));
+        
+        statusDiv.textContent = `💾 Saved ${uniqueAddresses.length} addresses to local storage. Loading roll data...`;
+        progressBar.style.width = '80%';
+        progressBar.textContent = '80%';
+        
+        // Now display the whitelist
+        document.getElementById('whitelistTotal').textContent = uniqueAddresses.length;
+        
+        const tableHTML = `
+            <table class="whitelist-table">
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Free Rolls</th>
+                        <th>Paid Rolls</th>
+                        <th>Total Rolls</th>
+                    </tr>
+                </thead>
+                <tbody id="whitelistTableBody">
+                    <tr><td colspan="4" style="text-align: center; color: #ccc;">Loading roll data...</td></tr>
+                </tbody>
+            </table>
+        `;
+        
+        document.getElementById('whitelistTable').innerHTML = tableHTML;
+        document.getElementById('whitelistViewerResults').style.display = 'block';
+        
+        const tbody = document.getElementById('whitelistTableBody');
+        tbody.innerHTML = '';
+        
+        // Load roll data for each address
+        let loadedCount = 0;
+        for (const address of uniqueAddresses) {
+            try {
+                const [freeRolls, paidRolls] = await distributionContract.getUserRolls(address);
+                const free = Number(freeRolls.toString());
+                const paid = Number(paidRolls.toString());
+                const total = free + paid;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-family: monospace;">${address.slice(0, 10)}...${address.slice(-8)}</td>
+                    <td style="color: ${free > 0 ? '#00ff00' : '#666'};"><strong>${free}</strong></td>
+                    <td style="color: ${paid > 0 ? '#4a90e2' : '#666'};"><strong>${paid}</strong></td>
+                    <td style="color: ${total > 0 ? '#ffd700' : '#666'};"><strong>${total}</strong></td>
+                `;
+                tbody.appendChild(row);
+                
+                loadedCount++;
+                const progress = 80 + Math.floor((loadedCount / uniqueAddresses.length) * 20);
+                progressBar.style.width = `${progress}%`;
+                progressBar.textContent = `${progress}%`;
+                
+            } catch (error) {
+                console.error(`Error loading rolls for ${address}:`, error);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-family: monospace;">${address.slice(0, 10)}...${address.slice(-8)}</td>
+                    <td colspan="3" style="color: #ff4444;">Error</td>
+                `;
+                tbody.appendChild(row);
+            }
+        }
+        
+        // Complete!
+        progressBar.style.width = '100%';
+        progressBar.textContent = '100%';
+        statusDiv.textContent = `🎉 Import complete! Found and loaded ${uniqueAddresses.length} addresses.`;
+        
+        addLog(`✅ Successfully imported ${uniqueAddresses.length} addresses from blockchain!`, 'success');
+        
+        setTimeout(() => {
+            progressDiv.style.display = 'none';
+        }, 5000);
+        
+    } catch (error) {
+        console.error('Error importing whitelist:', error);
+        statusDiv.textContent = `❌ Error: ${error.message}`;
+        progressBar.style.width = '0%';
+        addLog(`Error importing from contract: ${error.message}`, 'error');
+        
+        setTimeout(() => {
+            progressDiv.style.display = 'none';
+        }, 10000);
+    }
+}
+
+// Account change listener
+if (window.ethereum) {
+    window.ethereum.on('accountsChanged', (accounts) => {
+        location.reload();
+    });
+    
+    window.ethereum.on('chainChanged', () => {
+        location.reload();
+    });
+}
+
 // Load analytics on page load
 window.addEventListener('load', () => {
-    // Load school analytics if admin panel is visible
     setTimeout(() => {
         if (document.getElementById('adminPanel').style.display !== 'none') {
             loadSchoolAnalytics();
         }
     }, 1000);
 });
+
+console.log('✅ Winions Admin Panel Script Loaded (with Import Feature)');
+console.log('📋 Make sure token-mapping.js, config.js, and contract-abi.js are loaded first!');
