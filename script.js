@@ -538,6 +538,16 @@ async function selectSchool(school) {
     
     currentSchool = school;
     
+    // 📊 TRACK SCHOOL SELECTION FOR ANALYTICS
+    try {
+        const key = `winions_school_${school}`;
+        const currentCount = parseInt(localStorage.getItem(key) || '0');
+        localStorage.setItem(key, (currentCount + 1).toString());
+        console.log(`📊 School selection tracked: ${school} (total: ${currentCount + 1})`);
+    } catch (error) {
+        console.error('Error tracking school selection:', error);
+    }
+    
     console.log(`🎲 School selected: ${school.toUpperCase()}`);
     console.log(`Using ${school.toUpperCase()} weighted ranges`);
     
