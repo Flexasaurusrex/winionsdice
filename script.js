@@ -15,8 +15,9 @@ const diceRoller = {
         'royal': { min: 346, max: 356, image: 'royal.gif', rarity: 'RARE', class: 'rare-badge' },
         'shadows': { min: 357, max: 367, image: 'shadow.gif', rarity: 'RARE', class: 'rare-badge' },
         'hellish': { min: 368, max: 378, image: 'hellish.gif', rarity: 'RARE', class: 'rare-badge' },
-        'hologram': { min: 379, max: 389, image: 'hologram.gif', rarity: 'ULTRA RARE', class: 'ultra-rare-badge' }
-        // Gold (0 supply) and Death (0 supply) removed
+        'hologram': { min: 379, max: 389, image: 'hologram.gif', rarity: 'ULTRA RARE', class: 'ultra-rare-badge' },
+        'gold': { min: 390, max: 394, image: 'gold.gif', rarity: 'ULTRA RARE', class: 'ultra-rare-badge' }
+        // Death (0 supply) removed - only rolls 66-394 now
     },
 
     init() {
@@ -127,7 +128,8 @@ const diceRoller = {
         // Balanced with high bias - still 32% commons, 30% rares
         // [1:1x, 2:2x, 3:3x, 4:4x, 5:3x, 6:2x]
         // Produces ~22% Havoc, ~10% Misfits, much higher rare %
-        // CRITICAL WARNING: Royal (2), Clay (3), Hellish (3) will deplete FAST!
+        // Gold (1 NFT): ~1.8% chance with Luck (BEST ODDS!)
+        // CRITICAL WARNING: Gold (1), Royal (2), Clay (3), Hellish (3) will deplete FAST!
         const weights = [1, 2, 3, 4, 3, 2];
         return this.rollWeightedDie(weights);
     },
@@ -173,9 +175,9 @@ const diceRoller = {
     calculateTotal(rolls) {
         let total = rolls.reduce((sum, roll) => sum + roll, 0);
         
-        // Cap at 389 (Hologram max) since Gold and Death have 0 supply
-        if (total > 389) {
-            total = 389;
+        // Cap at 394 (Gold max) since Death still has 0 supply
+        if (total > 394) {
+            total = 394;
         }
         
         // Animate the total counting up
