@@ -95,14 +95,46 @@ async function refreshStatus() {
         document.getElementById('contractBalance').textContent = 
             `${ethers.formatEther(balance)} ETH`;
         
-        // Total NFTs (estimate)
-        document.getElementById('totalNFTs').textContent = '...';
+        // Count NFTs in contract (quick check)
+        document.getElementById('totalNFTs').textContent = 'Counting...';
+        countContractNFTs();
         
         addLog('Status refreshed', 'success');
         
     } catch (error) {
         console.error('Error refreshing status:', error);
         addLog(`Error: ${error.message}`, 'error');
+    }
+}
+
+// Helper function to count NFTs in contract
+async function countContractNFTs() {
+    try {
+        const contractAddress = CONFIG.DISTRIBUTION_CONTRACT;
+        let count = 0;
+        const batchSize = 20;
+        
+        for (let start = 480; start <= 666; start += batchSize) {
+            const end = Math.min(start + batchSize - 1, 666);
+            const promises = [];
+            
+            for (let tokenId = start; tokenId <= end; tokenId++) {
+                promises.push(
+                    winionsContract.ownerOf(tokenId)
+                        .then(owner => owner.toLowerCase() === contractAddress.toLowerCase())
+                        .catch(() => false)
+                );
+            }
+            
+            const results = await Promise.all(promises);
+            count += results.filter(owned => owned).length;
+        }
+        
+        document.getElementById('totalNFTs').textContent = count;
+        
+    } catch (error) {
+        console.error('Error counting NFTs:', error);
+        document.getElementById('totalNFTs').textContent = 'Error';
     }
 }
 
