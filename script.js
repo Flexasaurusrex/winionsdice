@@ -89,7 +89,6 @@ async function loadFomoCounter(isAutoRefresh = false) {
         // Show refresh indicator if auto-refreshing
         const fomoCounter = document.getElementById('fomoCounter');
         if (isAutoRefresh && fomoCounter) {
-            const currentHTML = fomoCounter.innerHTML;
             fomoCounter.style.opacity = '0.6';
             fomoCounter.innerHTML = `
                 <div class="fomo-text" style="font-size: 18px;">
@@ -100,8 +99,9 @@ async function loadFomoCounter(isAutoRefresh = false) {
         
         console.log('🔥 Loading FOMO counter...');
         
-        // Create a provider that doesn't need wallet connection
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        // ✅ USE READ-ONLY PROVIDER - NO WALLET CONNECTION NEEDED!
+        // This won't trigger any wallet popups
+        const provider = new ethers.JsonRpcProvider('https://eth.llamarpc.com');
         
         const contractABI = [
             "function getHouseInventoryCount(string houseName) view returns (uint256)"
@@ -188,32 +188,20 @@ async function loadFomoCounter(isAutoRefresh = false) {
     }
 }
 
-// Load FOMO counter when page loads (even without wallet)
+// Load FOMO counter when page loads (NO WALLET NEEDED!)
 window.addEventListener('load', () => {
     console.log('🚀 Page loaded, initializing FOMO counter...');
     
-    // Load FOMO counter immediately
-    if (typeof window.ethereum !== 'undefined') {
-        loadFomoCounter();
-        
-        // 🔥 AUTO-REFRESH EVERY 30 SECONDS
-        setInterval(() => {
-            console.log('🔄 Auto-refreshing FOMO counter...');
-            loadFomoCounter(true); // Pass true to indicate it's an auto-refresh
-        }, 30000); // 30 seconds
-        
-        console.log('✅ Auto-refresh enabled (every 30 seconds)');
-    } else {
-        // If no wallet detected, show message
-        const fomoCounter = document.getElementById('fomoCounter');
-        if (fomoCounter) {
-            fomoCounter.innerHTML = `
-                <div class="fomo-text" style="font-size: 20px;">
-                    INSTALL METAMASK TO SEE REMAINING SUPPLY!
-                </div>
-            `;
-        }
-    }
+    // ✅ ALWAYS load FOMO counter - uses public RPC, no wallet needed!
+    loadFomoCounter();
+    
+    // 🔥 AUTO-REFRESH EVERY 30 SECONDS
+    setInterval(() => {
+        console.log('🔄 Auto-refreshing FOMO counter...');
+        loadFomoCounter(true); // Pass true to indicate it's an auto-refresh
+    }, 30000); // 30 seconds
+    
+    console.log('✅ Auto-refresh enabled (every 30 seconds)');
 });
 
 // Screen Navigation
