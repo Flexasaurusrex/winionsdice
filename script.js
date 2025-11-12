@@ -560,6 +560,17 @@ window.addEventListener('beforeunload', (e) => {
     }
 });
 
+// 🔌 WALLET CONNECT BUTTON EVENT LISTENER - THIS WAS MISSING!
+document.addEventListener('DOMContentLoaded', () => {
+    const connectBtn = document.getElementById('connectWalletBtn');
+    if (connectBtn) {
+        connectBtn.addEventListener('click', connectWallet);
+        console.log('✅ Wallet connect button listener attached');
+    } else {
+        console.error('❌ Connect button not found! Check your HTML button ID.');
+    }
+});
+
 console.log('✅ Winions Dice Roller Loaded (v3 with School Tracking)');
 console.log('🎲 Weighted School System Active');
 console.log('📊 School Analytics Tracking Enabled');
