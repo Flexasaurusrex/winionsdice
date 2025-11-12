@@ -154,6 +154,54 @@ h1 {
     cursor: not-allowed;
 }
 
+/* 🔥 FOMO COUNTER */
+.fomo-counter {
+    text-align: center;
+    margin: 30px auto;
+    padding: 20px;
+    max-width: 500px;
+    background: rgba(255, 26, 26, 0.1);
+    border: 2px solid var(--primary-red);
+    border-radius: 8px;
+    animation: pulseFomo 2s ease-in-out infinite;
+}
+
+.fomo-text {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--primary-red);
+    text-shadow: 0 0 20px rgba(255, 26, 26, 0.8);
+    letter-spacing: 2px;
+}
+
+.fomo-number {
+    font-size: 48px;
+    color: #ffffff;
+    text-shadow: 0 0 30px rgba(255, 26, 26, 1);
+}
+
+@keyframes pulseFomo {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 0 20px rgba(255, 26, 26, 0.4);
+    }
+    50% { 
+        transform: scale(1.02);
+        box-shadow: 0 0 40px rgba(255, 26, 26, 0.8);
+    }
+}
+
+@keyframes flashFomo {
+    0%, 100% { 
+        background: rgba(255, 26, 26, 0.1);
+    }
+    50% { 
+        background: rgba(255, 26, 26, 0.4);
+        transform: scale(1.05);
+        box-shadow: 0 0 60px rgba(255, 26, 26, 1);
+    }
+}
+
 .verification-status {
     margin-top: 20px;
     text-align: center;
@@ -616,6 +664,14 @@ h1 {
 @media (max-width: 768px) {
     h1 {
         font-size: 32px;
+    }
+    
+    .fomo-text {
+        font-size: 20px;
+    }
+    
+    .fomo-number {
+        font-size: 36px;
     }
     
     .dice-display {
