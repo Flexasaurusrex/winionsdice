@@ -1,4 +1,4 @@
-// Winions Dice Roller - COMPLETE WITH WEIGHTED SCHOOLS + VALIDATION
+// Winions Dice Roller - COMPLETE WITH WEIGHTED SCHOOLS + VALIDATION + FOMO COUNTER
 // Contract: 0xb4795Da90B116Ef1BD43217D3EAdD7Ab9A9f7Ba7
 
 (function() {
@@ -44,13 +44,12 @@ const HOUSE_RANGES = {
 const SCHOOL_WEIGHTS = {
     anarchy: {
         commons: ['House of Havoc', 'House of Misfits', 'House of Royal'],
-        commonsWeight: 75, // 75% chance
+        commonsWeight: 75,
         boostedRares: {
             'House of Hellish': 3,
             'House of Frog': 6,
             'House of Shadows': 4.5
         },
-        // Other rares split the remaining 11.5%
         otherRares: ['House of Theory', 'House of Spectrum', 'House of Clay', 
                      'House of Stencil', 'House of Hologram', 'House of Gold', 'House of Death']
     },
@@ -93,19 +92,92 @@ function checkVersion() {
 
 checkVersion();
 
-// 🔥 FOMO COUNTER - DISABLED (CORS issues with public RPC)
-// TODO: Re-enable after adding CORS-enabled RPC or using user's wallet provider
+// 🔥 FOMO COUNTER - Uses user's wallet provider (no CORS issues!)
 async function loadFomoCounter(isAutoRefresh = false) {
-    console.log('⚠️ FOMO counter disabled - requires CORS-enabled RPC endpoint');
-    // Silently skip loading to prevent console spam
-    return;
+    if (!provider || !distributionContract) {
+        console.log('⚠️ FOMO counter waiting for wallet connection...');
+        return;
+    }
+    
+    const fomoDiv = document.getElementById('fomoCounter');
+    const fomoTextDiv = document.getElementById('fomoText');
+    const fomoDiv2 = document.getElementById('fomoCounterRolls');
+    const fomoTextDiv2 = document.getElementById('fomoTextRolls');
+    
+    try {
+        if (!isAutoRefresh) {
+            console.log('🔥 Loading FOMO counter...');
+            if (fomoTextDiv) fomoTextDiv.textContent = 'LOADING...';
+            if (fomoTextDiv2) fomoTextDiv2.textContent = 'LOADING...';
+        }
+        
+        // Contract for Winions NFT
+        const winionsABI = ["function ownerOf(uint256 tokenId) view returns (address)"];
+        const winionsContract = new ethers.Contract(
+            CONFIG.WINIONS_NFT_CONTRACT,
+            winionsABI,
+            provider
+        );
+        
+        // Count NFTs owned by distribution contract
+        const contractAddress = CONFIG.DISTRIBUTION_CONTRACT;
+        let count = 0;
+        const batchSize = 20;
+        
+        for (let start = 480; start <= 666; start += batchSize) {
+            const end = Math.min(start + batchSize - 1, 666);
+            const promises = [];
+            
+            for (let tokenId = start; tokenId <= end; tokenId++) {
+                promises.push(
+                    winionsContract.ownerOf(tokenId)
+                        .then(owner => owner.toLowerCase() === contractAddress.toLowerCase())
+                        .catch(() => false)
+                );
+            }
+            
+            const results = await Promise.all(promises);
+            count += results.filter(owned => owned).length;
+        }
+        
+        // HTML content for both counters
+        const counterHTML = `
+            <div style="font-size: 18px; color: #ff6b35; margin-bottom: 5px;">🔥 ONLY</div>
+            <div class="fomo-number">${count}</div>
+            <div style="font-size: 18px; color: #ff6b35; margin-top: 5px;">WINIONS LEFT!</div>
+        `;
+        
+        // Update wallet screen counter
+        if (fomoDiv && fomoTextDiv) {
+            fomoDiv.style.display = 'block';
+            fomoDiv.style.animation = 'flashFomo 0.5s ease-out';
+            fomoTextDiv.innerHTML = counterHTML;
+            setTimeout(() => {
+                fomoDiv.style.animation = 'pulseFomo 2s ease-in-out infinite';
+            }, 500);
+        }
+        
+        // Update rolls screen counter
+        if (fomoDiv2 && fomoTextDiv2) {
+            fomoDiv2.style.display = 'block';
+            fomoDiv2.style.animation = 'flashFomo 0.5s ease-out';
+            fomoTextDiv2.innerHTML = counterHTML;
+            setTimeout(() => {
+                fomoDiv2.style.animation = 'pulseFomo 2s ease-in-out infinite';
+            }, 500);
+        }
+        
+        if (!isAutoRefresh) {
+            console.log(`✅ FOMO counter loaded: ${count} NFTs remaining`);
+        }
+        
+    } catch (error) {
+        console.error('Error loading FOMO counter:', error);
+        const errorHTML = `<div style="color: #ff4444;">Unable to load count</div>`;
+        if (fomoTextDiv) fomoTextDiv.innerHTML = errorHTML;
+        if (fomoTextDiv2) fomoTextDiv2.innerHTML = errorHTML;
+    }
 }
-
-// Don't auto-load FOMO counter on page load
-// window.addEventListener('load', () => {
-//     loadFomoCounter();
-//     setInterval(() => loadFomoCounter(true), 30000);
-// });
 
 function showScreen(screenId) {
     const screens = ['walletScreen', 'rollsScreen', 'schoolScreen', 'diceScreen'];
@@ -192,18 +264,23 @@ async function connectWallet() {
         console.log('✅ Distribution is active!');
         
         console.log('🔍 Checking for pending claims FIRST...');
-        checkPendingClaim();  // ✅ DO THIS FIRST to set hasPendingClaim flag!
+        checkPendingClaim();
         
         console.log('📥 Loading user rolls...');
-        await loadUserRolls();  // ✅ This will verify pending claim if it exists
+        await loadUserRolls();
         
         console.log('💰 Loading prices...');
         await loadPrices();
         
+        // ✅ LOAD FOMO COUNTER NOW THAT WALLET IS CONNECTED
+        console.log('🔥 Loading FOMO counter...');
+        await loadFomoCounter();
+        
+        // Set up auto-refresh every 30 seconds
+        setInterval(() => loadFomoCounter(true), 30000);
+        
         console.log('🎉 Connection successful!');
         
-        // ✅ CRITICAL: Only show rolls screen if NO pending claim
-        // If there's a pending claim, checkPendingClaim() already showed dice screen
         if (!hasPendingClaim) {
             console.log('✅ No pending claim - showing rolls screen');
             showScreen('rollsScreen');
@@ -234,7 +311,6 @@ async function loadUserRolls() {
         document.getElementById('freeRollsCount').textContent = free;
         document.getElementById('paidRollsCount').textContent = paid;
         
-        // ✅ ESCAPE HATCH: If there's a pending claim, verify the house still has NFTs
         if (hasPendingClaim && currentHouseName) {
             console.log(`🔍 Verifying pending claim for ${currentHouseName}...`);
             
@@ -247,7 +323,6 @@ async function loadUserRolls() {
                     console.error(`   House "${currentHouseName}" has 0 NFTs!`);
                     console.error(`   Clearing stuck pending claim...`);
                     
-                    // Clear the stuck pending claim
                     hasPendingClaim = false;
                     localStorage.removeItem('winions_pending_claim');
                     currentSchool = null;
@@ -257,7 +332,6 @@ async function loadUserRolls() {
                     showToast('🚨 Your pending house is sold out!', 'error');
                     showToast('✅ Pending claim cleared - you can roll again!', 'success');
                     
-                    // Return to rolls screen
                     showScreen('rollsScreen');
                     document.getElementById('houseResult').style.display = 'none';
                     
@@ -266,7 +340,6 @@ async function loadUserRolls() {
                     console.log(`✅ House "${currentHouseName}" has ${count} NFTs - claim is VALID`);
                     console.log(`🔒 ANTI-REFRESH PROTECTION ACTIVE: User must claim before rolling again!`);
                     
-                    // Update the NFT count display
                     const countDisplay = document.createElement('p');
                     countDisplay.className = 'nft-count';
                     countDisplay.style.cssText = 'color: #00ff00; margin-top: 10px; font-size: 18px;';
@@ -280,7 +353,6 @@ async function loadUserRolls() {
             } catch (error) {
                 console.error('Error checking pending claim house:', error);
                 console.log('⚠️ Could not verify house inventory, keeping pending claim active');
-                // If we can't check, keep the pending claim active (safer)
             }
         }
         
@@ -320,6 +392,7 @@ async function purchaseRolls(rollType) {
         showToast('Rolls purchased successfully!', 'success');
         
         await loadUserRolls();
+        await loadFomoCounter(true); // Refresh FOMO counter after purchase
         
     } catch (error) {
         console.error('Error purchasing rolls:', error);
@@ -327,17 +400,14 @@ async function purchaseRolls(rollType) {
     }
 }
 
-// ✅ VALIDATION FIX #2
 async function selectSchool(school) {
-    // 🔒 CRITICAL: HARD BLOCK if there's an unclaimed Winion
     if (hasPendingClaim) {
         showToast('🚨 YOU MUST CLAIM YOUR WINION BEFORE SELECTING A SCHOOL!', 'error');
         showToast('⚠️ Refreshing the page will not bypass this!', 'warning');
         console.error('❌ BLOCKED: User has pending claim, cannot select school');
-        return; // HARD BLOCK
+        return;
     }
     
-    // ✅ VALIDATE USER HAS ROLLS
     const freeRolls = parseInt(document.getElementById('freeRollsCount').textContent || '0');
     const paidRolls = parseInt(document.getElementById('paidRollsCount').textContent || '0');
     const totalRolls = freeRolls + paidRolls;
@@ -444,7 +514,6 @@ function createDiceDisplay() {
     }
 }
 
-// 🎲 WEIGHTED DICE ROLL SYSTEM - WITH INVENTORY CHECK!
 function generateWeightedRoll(school, availableHouses) {
     if (!school || !SCHOOL_WEIGHTS[school]) {
         console.error('Invalid school:', school);
@@ -462,25 +531,19 @@ function generateWeightedRoll(school, availableHouses) {
     console.log(`🎲 Rolling for school: ${school.toUpperCase()}`);
     console.log(`Random number: ${random.toFixed(2)}%`);
     
-    // Filter commons to only available houses
     const availableCommons = schoolConfig.commons.filter(h => availableHouses[h]);
-    
-    // Filter boosted rares to only available houses
     const availableBoostedRares = {};
     for (const [houseName, weight] of Object.entries(schoolConfig.boostedRares)) {
         if (availableHouses[houseName]) {
             availableBoostedRares[houseName] = weight;
         }
     }
-    
-    // Filter other rares to only available houses
     const availableOtherRares = schoolConfig.otherRares.filter(h => availableHouses[h]);
     
     console.log(`📦 Available commons: ${availableCommons.length}/${schoolConfig.commons.length}`);
     console.log(`📦 Available boosted rares: ${Object.keys(availableBoostedRares).length}/${Object.keys(schoolConfig.boostedRares).length}`);
     console.log(`📦 Available other rares: ${availableOtherRares.length}/${schoolConfig.otherRares.length}`);
     
-    // 75% chance for commons (if any available)
     if (random < schoolConfig.commonsWeight && availableCommons.length > 0) {
         const commonHouse = availableCommons[Math.floor(Math.random() * availableCommons.length)];
         const range = HOUSE_RANGES[commonHouse];
@@ -489,7 +552,6 @@ function generateWeightedRoll(school, availableHouses) {
         return roll;
     }
     
-    // Boosted rares: 13.5% total (if any available)
     if (Object.keys(availableBoostedRares).length > 0) {
         let boostedStart = schoolConfig.commonsWeight;
         for (const [houseName, weight] of Object.entries(availableBoostedRares)) {
@@ -503,7 +565,6 @@ function generateWeightedRoll(school, availableHouses) {
         }
     }
     
-    // Other rares: remaining % (if any available)
     if (availableOtherRares.length > 0) {
         const otherRareHouse = availableOtherRares[Math.floor(Math.random() * availableOtherRares.length)];
         const range = HOUSE_RANGES[otherRareHouse];
@@ -512,7 +573,6 @@ function generateWeightedRoll(school, availableHouses) {
         return roll;
     }
     
-    // Fallback: If preferred categories empty, pick ANY available house
     console.warn('⚠️ All preferred categories empty, picking from any available house');
     const allAvailable = Object.keys(availableHouses);
     if (allAvailable.length > 0) {
@@ -527,7 +587,6 @@ function generateWeightedRoll(school, availableHouses) {
     return null;
 }
 
-// Helper to get house from roll
 function getHouseFromRoll(total) {
     for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
         if (total >= range.min && total <= range.max) {
@@ -537,13 +596,11 @@ function getHouseFromRoll(total) {
     return 'Unknown House';
 }
 
-// ✅ NEW: Check which houses have NFTs available
 let availableHousesCache = {};
 let cacheTimestamp = 0;
-const CACHE_DURATION = 30000; // 30 seconds
+const CACHE_DURATION = 30000;
 
 async function checkAvailableHouses() {
-    // Use cache if recent
     if (Date.now() - cacheTimestamp < CACHE_DURATION && Object.keys(availableHousesCache).length > 0) {
         console.log('📦 Using cached house inventory');
         return availableHousesCache;
@@ -576,19 +633,17 @@ async function checkAvailableHouses() {
     return availableHousesCache;
 }
 
-// ✅ VALIDATION FIX #3 - Roll with contract call + weighted distribution
 async function rollDice() {
     rollAudio.currentTime = 0;
     rollAudio.play().catch(err => console.log('Audio blocked:', err));
     
-    // 🔒 CRITICAL ANTI-REFRESH PROTECTION
     if (hasPendingClaim) {
         showToast('🚨 YOU CANNOT ROLL AGAIN! CLAIM YOUR WINION FIRST!', 'error');
         showToast('⚠️ Refreshing the page will NOT bypass this!', 'warning');
         console.error('❌ BLOCKED: User has unclaimed Winion, cannot roll again');
         console.error(`   Pending house: ${currentHouseName}`);
         console.error(`   Pending total: ${currentRollTotal}`);
-        return; // ABSOLUTE HARD BLOCK
+        return;
     }
     
     if (!currentSchool) {
@@ -596,7 +651,6 @@ async function rollDice() {
         return;
     }
     
-    // ✅ VALIDATE ROLLS
     const freeRolls = parseInt(document.getElementById('freeRollsCount').textContent || '0');
     const paidRolls = parseInt(document.getElementById('paidRollsCount').textContent || '0');
     const totalRolls = freeRolls + paidRolls;
@@ -612,7 +666,6 @@ async function rollDice() {
         rollButton.disabled = true;
         rollButton.textContent = '🎲 CHECKING INVENTORY...';
         
-        // ✅ CHECK WHICH HOUSES HAVE NFTS AVAILABLE
         const availableHouses = await checkAvailableHouses();
         
         if (Object.keys(availableHouses).length === 0) {
@@ -631,7 +684,6 @@ async function rollDice() {
         console.log(`📊 User has ${totalRolls} rolls available`);
         console.log(`⚠️ Roll will be deducted when claiming, not now`);
         
-        // ✅ USE CLIENT-SIDE WEIGHTED DISTRIBUTION WITH INVENTORY CHECK
         const targetTotal = generateWeightedRoll(currentSchool, availableHouses);
         
         if (targetTotal === null) {
@@ -644,7 +696,6 @@ async function rollDice() {
         currentRollTotal = targetTotal;
         console.log('🎲 Final weighted roll result:', targetTotal);
         
-        // Verify the house has NFTs
         const rolledHouse = getHouseFromRoll(targetTotal);
         if (!availableHouses[rolledHouse]) {
             console.error(`❌ ERROR: Rolled into ${rolledHouse} but it has no NFTs!`);
@@ -656,7 +707,6 @@ async function rollDice() {
         
         console.log(`✅ Rolled house "${rolledHouse}" has ${availableHouses[rolledHouse]} NFTs available`);
         
-        // Animate spinning
         let elapsed = 0;
         const duration = 2000;
         const interval = 50;
@@ -706,7 +756,6 @@ function revealHouse(total) {
     document.getElementById('rolledHouseName').textContent = currentHouseName;
     document.getElementById('houseResult').style.display = 'block';
     
-    // Show remaining NFTs if available
     if (availableHousesCache[currentHouseName]) {
         const remaining = availableHousesCache[currentHouseName];
         const countDisplay = document.createElement('p');
@@ -746,7 +795,6 @@ function checkPendingClaim() {
             const data = JSON.parse(pendingData);
             
             if (data.user.toLowerCase() === userAddress.toLowerCase()) {
-                // ✅ RESTORE PENDING CLAIM IMMEDIATELY
                 hasPendingClaim = true;
                 currentHouseName = data.houseName;
                 currentSchool = data.school;
@@ -755,14 +803,12 @@ function checkPendingClaim() {
                 console.log('📋 Restored pending claim:', data);
                 console.log('🔒 ANTI-REFRESH PROTECTION: User cannot bypass claim!');
                 
-                // Show the dice screen with the pending claim
                 showScreen('diceScreen');
                 document.getElementById('chosenSchool').textContent = currentSchool.toUpperCase();
                 document.getElementById('totalValue').textContent = currentRollTotal;
                 document.getElementById('rolledHouseName').textContent = currentHouseName;
                 document.getElementById('houseResult').style.display = 'block';
                 
-                // ✅ CRITICAL: Disable roll button
                 const rollButton = document.getElementById('rollButton');
                 if (rollButton) {
                     rollButton.disabled = true;
@@ -770,7 +816,6 @@ function checkPendingClaim() {
                     console.log('🔒 Roll button DISABLED - user must claim first');
                 }
                 
-                // ✅ CRITICAL: Show spinning number with the result
                 createDiceDisplay();
                 const spinningNumber = document.getElementById('spinningNumber');
                 if (spinningNumber) {
@@ -778,7 +823,6 @@ function checkPendingClaim() {
                     spinningNumber.classList.remove('rolling', 'landing');
                 }
                 
-                // We'll verify inventory in loadUserRolls (after contract is ready)
                 console.log('⏳ Will verify house inventory after contract loads...');
                 
                 showToast('🔒 You have an unclaimed Winion!', 'warning');
@@ -838,13 +882,11 @@ async function claimWinion() {
         document.getElementById('claimedRollTotal').textContent = currentRollTotal;
         document.getElementById('etherscanLink').href = `https://etherscan.io/tx/${receipt.hash}`;
         
-        // ✅ HIDE BROKEN IMAGE (we don't need it)
         const claimedImage = document.getElementById('claimedNFTImage');
         if (claimedImage) {
             claimedImage.style.display = 'none';
         }
         
-        // ✅ ADD/UPDATE OPENSEA BUTTON
         let openSeaButton = document.getElementById('openSeaButton');
         if (!openSeaButton) {
             openSeaButton = document.createElement('a');
@@ -875,14 +917,12 @@ async function claimWinion() {
                 this.style.transform = 'scale(1)';
             };
             
-            // Insert after etherscan link
             const etherscanLink = document.getElementById('etherscanLink');
             if (etherscanLink && etherscanLink.parentNode) {
                 etherscanLink.parentNode.insertBefore(openSeaButton, etherscanLink.nextSibling);
             }
         }
         
-        // Update OpenSea link with token ID
         openSeaButton.href = `https://opensea.io/assets/ethereum/${CONFIG.WINIONS_NFT_CONTRACT}/${tokenId}`;
         openSeaButton.textContent = '👀 VIEW ON OPENSEA';
         openSeaButton.style.display = 'inline-block';
@@ -892,24 +932,22 @@ async function claimWinion() {
         showToast(`Winion #${tokenId} claimed successfully!`, 'success');
         
         await loadUserRolls();
+        await loadFomoCounter(true); // Refresh FOMO counter after claim
         
     } catch (error) {
         console.error('Error claiming Winion:', error);
         
-        // ✅ ESCAPE HATCH: If house has no NFTs, clear pending claim
         if (error.message && error.message.includes('No NFTs available')) {
             console.error('🚨 ESCAPE HATCH: House has no NFTs!');
             showToast('❌ This house is sold out!', 'error');
             showToast('✅ Clearing pending claim so you can roll again...', 'success');
             
-            // Clear the stuck pending claim
             hasPendingClaim = false;
             localStorage.removeItem('winions_pending_claim');
             currentSchool = null;
             currentRollTotal = 0;
             currentHouseName = '';
             
-            // Go back to rolls screen after 2 seconds
             setTimeout(() => {
                 showScreen('rollsScreen');
                 document.getElementById('houseResult').style.display = 'none';
@@ -980,7 +1018,6 @@ window.rollDice = rollDice;
 window.claimWinion = claimWinion;
 window.resetToRollsScreen = resetToRollsScreen;
 
-// 🚨 ESCAPE HATCH: Manual function to clear stuck pending claims
 window.clearStuckClaim = function() {
     console.log('🚨 MANUAL ESCAPE HATCH ACTIVATED');
     console.log('   Clearing pending claim from localStorage...');
@@ -1001,7 +1038,6 @@ window.clearStuckClaim = function() {
     return '✅ Clearing stuck claim and reloading...';
 };
 
-// 🔍 DEBUG: Check inventory for a specific house
 window.checkHouseInventory = async function(houseName) {
     if (!distributionContract) {
         return '❌ Please connect wallet first!';
@@ -1015,7 +1051,6 @@ window.checkHouseInventory = async function(houseName) {
         
         console.log(`📊 ${houseName}: ${countNum} NFTs available`);
         
-        // Also check cache
         if (availableHousesCache[houseName]) {
             const cachedCount = availableHousesCache[houseName];
             console.log(`💾 Cached count: ${cachedCount}`);
@@ -1038,7 +1073,6 @@ window.checkHouseInventory = async function(houseName) {
     }
 };
 
-// 🔍 DEBUG: Check ALL houses inventory
 window.checkAllHouses = async function() {
     if (!distributionContract) {
         return '❌ Please connect wallet first!';
@@ -1071,7 +1105,6 @@ window.checkAllHouses = async function() {
     console.log(`📊 TOTAL NFTS REMAINING: ${totalNFTs}/666`);
     console.log('');
     
-    // Compare with cache
     console.log('💾 CACHE STATUS:');
     const cacheKeys = Object.keys(availableHousesCache);
     console.log(`   Houses in cache: ${cacheKeys.length}`);
@@ -1086,7 +1119,6 @@ window.checkAllHouses = async function() {
     return results;
 };
 
-// 🔍 DEBUG: Force refresh cache
 window.refreshCache = async function() {
     if (!distributionContract) {
         return '❌ Please connect wallet first!';
@@ -1094,11 +1126,9 @@ window.refreshCache = async function() {
     
     console.log('🔄 FORCING CACHE REFRESH...');
     
-    // Clear cache
     availableHousesCache = {};
     cacheTimestamp = 0;
     
-    // Reload
     const results = await checkAvailableHouses();
     
     console.log('✅ Cache refreshed!');
@@ -1107,7 +1137,6 @@ window.refreshCache = async function() {
     return results;
 };
 
-// 🔍 DEBUG: See cache contents
 window.viewCache = function() {
     console.log('💾 CURRENT CACHE:');
     console.log('═══════════════════════════════════════');
@@ -1130,7 +1159,6 @@ window.viewCache = function() {
     return availableHousesCache;
 };
 
-// 🔍 DEBUG: Test weighted roll for a school (doesn't save)
 window.testWeightedRoll = async function(school, times = 10) {
     if (!distributionContract) {
         return '❌ Please connect wallet first!';
@@ -1140,7 +1168,6 @@ window.testWeightedRoll = async function(school, times = 10) {
     console.log(`   Rolling ${times} times...`);
     console.log('═══════════════════════════════════════');
     
-    // Get fresh inventory
     const houses = await checkAvailableHouses();
     
     const results = {};
@@ -1155,7 +1182,6 @@ window.testWeightedRoll = async function(school, times = 10) {
     console.log('');
     console.log('📊 RESULTS:');
     
-    // Sort by count
     const sorted = Object.entries(results).sort((a, b) => b[1] - a[1]);
     
     for (const [house, count] of sorted) {
@@ -1170,7 +1196,6 @@ window.testWeightedRoll = async function(school, times = 10) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // ✅ EARLY CHECK: Look for pending claims before wallet connect
     const pendingData = localStorage.getItem('winions_pending_claim');
     if (pendingData) {
         try {
@@ -1180,7 +1205,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('   Roll:', data.rollTotal);
             console.log('   User must connect and claim before rolling again!');
             
-            // Show warning on connect screen
             const walletScreen = document.getElementById('walletScreen');
             if (walletScreen) {
                 const warning = document.createElement('div');
@@ -1214,11 +1238,9 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('✅ Connect button listener attached');
     }
     
-    // ✅ VALIDATION FIX #1
     const continueBtn = document.getElementById('continueToSchool');
     if (continueBtn) {
         continueBtn.addEventListener('click', async () => {
-            // 🔒 CRITICAL: Block if pending claim exists
             if (hasPendingClaim) {
                 showToast('🚨 YOU MUST CLAIM YOUR WINION FIRST!', 'error');
                 showToast('⚠️ Refreshing will not bypass this!', 'warning');
@@ -1226,7 +1248,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            // ✅ CHECK IF USER HAS ROLLS
             const freeRolls = parseInt(document.getElementById('freeRollsCount').textContent || '0');
             const paidRolls = parseInt(document.getElementById('paidRollsCount').textContent || '0');
             const totalRolls = freeRolls + paidRolls;
@@ -1261,11 +1282,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-console.log('✅ Winions Dice Roller Loaded (v5 - WEIGHTED SCHOOLS + VALIDATION + ETHERS V5)');
+console.log('✅ Winions Dice Roller Loaded (v5 - WEIGHTED SCHOOLS + VALIDATION + ETHERS V5 + FOMO COUNTER)');
 console.log('🎲 75% Commons + Boosted Rares System Active');
 console.log('🛡️ Roll Validation Active at ALL Checkpoints');
 console.log('📊 School-specific weighted distribution enabled');
 console.log('📚 Ethers.js v5 compatible');
+console.log('🔥 FOMO counter enabled (loads after wallet connect)');
 console.log('');
 console.log('🔍 DEBUG FUNCTIONS AVAILABLE:');
 console.log('   checkHouseInventory("House of Havoc") - Check specific house');
