@@ -108,7 +108,7 @@ async function loadFomoCounter(isAutoRefresh = false) {
         
         console.log('🔥 Loading FOMO counter...');
         
-        const provider = new ethers.JsonRpcProvider('https://eth.llamarpc.com');
+        const provider = new ethers.providers.JsonRpcProvider('https://eth.llamarpc.com');
         
         const contractABI = [
             "function getHouseInventoryCount(string houseName) view returns (uint256)"
@@ -234,7 +234,7 @@ async function connectWallet() {
         console.log('✅ User address:', userAddress);
         
         console.log('🔧 Initializing ethers provider...');
-        provider = new ethers.BrowserProvider(window.ethereum);
+        provider = new ethers.providers.Web3Provider(window.ethereum);
         
         console.log('✍️ Getting signer...');
         signer = await provider.getSigner();
@@ -326,9 +326,9 @@ async function loadPrices() {
     try {
         const [single, three, five] = await distributionContract.getPrices();
         
-        document.getElementById('price1').textContent = ethers.formatEther(single) + ' ETH';
-        document.getElementById('price3').textContent = ethers.formatEther(three) + ' ETH';
-        document.getElementById('price5').textContent = ethers.formatEther(five) + ' ETH';
+        document.getElementById('price1').textContent = ethers.utils.formatEther(single) + ' ETH';
+        document.getElementById('price3').textContent = ethers.utils.formatEther(three) + ' ETH';
+        document.getElementById('price5').textContent = ethers.utils.formatEther(five) + ' ETH';
         
     } catch (error) {
         console.error('Error loading prices:', error);
@@ -828,9 +828,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-console.log('✅ Winions Dice Roller Loaded (v5 - WEIGHTED SCHOOLS + VALIDATION)');
+console.log('✅ Winions Dice Roller Loaded (v5 - WEIGHTED SCHOOLS + VALIDATION + ETHERS V5)');
 console.log('🎲 75% Commons + Boosted Rares System Active');
 console.log('🛡️ Roll Validation Active at ALL Checkpoints');
 console.log('📊 School-specific weighted distribution enabled');
+console.log('📚 Ethers.js v5 compatible');
 
 })();
