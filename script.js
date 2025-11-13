@@ -104,9 +104,21 @@ async function loadFomoCounter(isAutoRefresh = false) {
     const fomoDiv2 = document.getElementById('fomoCounterRolls');
     const fomoTextDiv2 = document.getElementById('fomoTextRolls');
     
+    console.log('🔍 FOMO counter elements check:');
+    console.log('   Wallet screen counter:', fomoDiv ? '✅ FOUND' : '❌ MISSING');
+    console.log('   Wallet screen text:', fomoTextDiv ? '✅ FOUND' : '❌ MISSING');
+    console.log('   Rolls screen counter:', fomoDiv2 ? '✅ FOUND' : '❌ MISSING');
+    console.log('   Rolls screen text:', fomoTextDiv2 ? '✅ FOUND' : '❌ MISSING');
+    
+    if (!fomoDiv2 || !fomoTextDiv2) {
+        console.error('❌ CRITICAL: Rolls screen FOMO counter elements not found!');
+        console.error('   Make sure HTML has <div id="fomoCounterRolls"> and <div id="fomoTextRolls">');
+        return;
+    }
+    
     try {
         if (!isAutoRefresh) {
-            console.log('🔥 Loading FOMO counter...');
+            console.log('🔥 Loading FOMO counter - counting NFTs in contract...');
             if (fomoTextDiv) fomoTextDiv.textContent = 'LOADING...';
             if (fomoTextDiv2) fomoTextDiv2.textContent = 'LOADING...';
         }
@@ -118,6 +130,8 @@ async function loadFomoCounter(isAutoRefresh = false) {
             winionsABI,
             provider
         );
+        
+        console.log('📡 Querying contract for NFT ownership...');
         
         // Count NFTs owned by distribution contract
         const contractAddress = CONFIG.DISTRIBUTION_CONTRACT;
@@ -137,8 +151,15 @@ async function loadFomoCounter(isAutoRefresh = false) {
             }
             
             const results = await Promise.all(promises);
-            count += results.filter(owned => owned).length;
+            const batchCount = results.filter(owned => owned).length;
+            count += batchCount;
+            
+            if (!isAutoRefresh) {
+                console.log(`   Checked tokens ${start}-${end}: ${batchCount} NFTs in contract`);
+            }
         }
+        
+        console.log(`✅ FOMO counter complete: ${count} NFTs remaining in contract`);
         
         // HTML content for both counters
         const counterHTML = `
@@ -147,7 +168,7 @@ async function loadFomoCounter(isAutoRefresh = false) {
             <div style="font-size: 18px; color: #ff6b35; margin-top: 5px;">WINIONS LEFT!</div>
         `;
         
-        // Update wallet screen counter
+        // Update wallet screen counter (if it exists)
         if (fomoDiv && fomoTextDiv) {
             fomoDiv.style.display = 'block';
             fomoDiv.style.animation = 'flashFomo 0.5s ease-out';
@@ -155,9 +176,10 @@ async function loadFomoCounter(isAutoRefresh = false) {
             setTimeout(() => {
                 fomoDiv.style.animation = 'pulseFomo 2s ease-in-out infinite';
             }, 500);
+            console.log('✅ Updated wallet screen counter');
         }
         
-        // Update rolls screen counter
+        // Update rolls screen counter (MOST IMPORTANT!)
         if (fomoDiv2 && fomoTextDiv2) {
             fomoDiv2.style.display = 'block';
             fomoDiv2.style.animation = 'flashFomo 0.5s ease-out';
@@ -165,15 +187,15 @@ async function loadFomoCounter(isAutoRefresh = false) {
             setTimeout(() => {
                 fomoDiv2.style.animation = 'pulseFomo 2s ease-in-out infinite';
             }, 500);
+            console.log('✅ Updated rolls screen counter');
         }
         
-        if (!isAutoRefresh) {
-            console.log(`✅ FOMO counter loaded: ${count} NFTs remaining`);
-        }
+        console.log('🎉 FOMO counter update complete!');
         
     } catch (error) {
-        console.error('Error loading FOMO counter:', error);
-        const errorHTML = `<div style="color: #ff4444;">Unable to load count</div>`;
+        console.error('❌ Error loading FOMO counter:', error);
+        console.error('   Error details:', error.message);
+        const errorHTML = `<div style="color: #ff4444; font-size: 14px;">Unable to load count<br>${error.message}</div>`;
         if (fomoTextDiv) fomoTextDiv.innerHTML = errorHTML;
         if (fomoTextDiv2) fomoTextDiv2.innerHTML = errorHTML;
     }
@@ -272,22 +294,28 @@ async function connectWallet() {
         console.log('💰 Loading prices...');
         await loadPrices();
         
-        // ✅ LOAD FOMO COUNTER NOW THAT WALLET IS CONNECTED
-        console.log('🔥 Loading FOMO counter...');
+        // ✅ LOAD FOMO COUNTER WHILE STILL ON WALLET SCREEN
+        // This shows the count to the user BEFORE switching to rolls screen
+        console.log('🔥 Loading FOMO counter on wallet screen...');
         await loadFomoCounter();
         
-        // Set up auto-refresh every 30 seconds
+        // Set up auto-refresh every 30 seconds (only once!)
         setInterval(() => loadFomoCounter(true), 30000);
         
         console.log('🎉 Connection successful!');
+        console.log('⏳ Showing FOMO counter for 1 second before switching screens...');
         
-        if (!hasPendingClaim) {
-            console.log('✅ No pending claim - showing rolls screen');
-            showScreen('rollsScreen');
-        } else {
-            console.log('🔒 Pending claim active - staying on dice screen');
-            console.log('   User MUST claim before rolling again!');
-        }
+        // Wait 1 second to let user see the counter on wallet screen
+        setTimeout(() => {
+            if (!hasPendingClaim) {
+                console.log('✅ No pending claim - showing rolls screen');
+                showScreen('rollsScreen');
+                console.log('🔥 FOMO counter will continue to display on rolls screen');
+            } else {
+                console.log('🔒 Pending claim active - staying on dice screen');
+                console.log('   User MUST claim before rolling again!');
+            }
+        }, 1000);
         
     } catch (error) {
         console.error('Error connecting wallet:', error);
@@ -859,19 +887,22 @@ async function claimWinion() {
         
         console.log('✅ Claim successful! Roll has been deducted on-chain.');
         
-        const claimEvent = receipt.logs.find(log => {
-            try {
-                const parsed = distributionContract.interface.parseLog(log);
-                return parsed.name === 'NFTDistributed';
-            } catch {
-                return false;
-            }
-        });
-        
+        // Extract token ID from ERC721 Transfer event (ALWAYS reliable!)
         let tokenId = 'Unknown';
-        if (claimEvent) {
-            const parsed = distributionContract.interface.parseLog(claimEvent);
-            tokenId = parsed.args.tokenId.toString();
+        
+        const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+        const transferLog = receipt.logs.find(log => 
+            log.topics[0] === transferTopic && 
+            log.address.toLowerCase() === CONFIG.WINIONS_NFT_CONTRACT.toLowerCase()
+        );
+        
+        if (transferLog && transferLog.topics[3]) {
+            // Token ID is always in topics[3] for ERC721 Transfer events
+            tokenId = parseInt(transferLog.topics[3], 16).toString();
+            console.log('✅ Token ID from Transfer event:', tokenId);
+        } else {
+            console.error('❌ Could not find Transfer event in transaction logs!');
+            console.log('📋 Receipt logs:', receipt.logs);
         }
         
         hasPendingClaim = false;
