@@ -249,6 +249,7 @@ async function connectWallet() {
             "function rollForWinion(string school) returns (uint256 rollTotal)",
             "function claimWinion(uint256 rollTotal, string houseName) returns (uint256 tokenId)",
             "function getAvailableHouses(uint256 rollTotal) view returns (string[] memory houses)",
+            "function getHouseInventoryCount(string houseName) view returns (uint256)",
             "event NFTDistributed(address indexed recipient, uint256 indexed tokenId, string houseName)"
         ];
         
@@ -316,6 +317,57 @@ async function loadUserRolls() {
         
         document.getElementById('freeRollsCount').textContent = free;
         document.getElementById('paidRollsCount').textContent = paid;
+        
+        // ✅ ESCAPE HATCH: If there's a pending claim, verify the house still has NFTs
+        if (hasPendingClaim && currentHouseName) {
+            console.log(`🔍 Verifying pending claim for ${currentHouseName}...`);
+            
+            try {
+                const houseCount = await distributionContract.getHouseInventoryCount(currentHouseName);
+                const count = Number(houseCount.toString());
+                
+                if (count === 0) {
+                    console.error(`🚨 ESCAPE HATCH ACTIVATED!`);
+                    console.error(`   House "${currentHouseName}" has 0 NFTs!`);
+                    console.error(`   Clearing stuck pending claim...`);
+                    
+                    // Clear the stuck pending claim
+                    hasPendingClaim = false;
+                    localStorage.removeItem('winions_pending_claim');
+                    currentSchool = null;
+                    currentRollTotal = 0;
+                    currentHouseName = '';
+                    
+                    showToast('🚨 Your pending house is sold out!', 'error');
+                    showToast('✅ Pending claim cleared - you can roll again!', 'success');
+                    
+                    console.log('✅ Escape hatch successful - user can now roll again');
+                } else {
+                    console.log(`✅ House "${currentHouseName}" has ${count} NFTs - claim is valid`);
+                    
+                    // Restore to dice screen with pending claim
+                    showScreen('diceScreen');
+                    document.getElementById('chosenSchool').textContent = currentSchool.toUpperCase();
+                    document.getElementById('totalValue').textContent = currentRollTotal;
+                    document.getElementById('rolledHouseName').textContent = currentHouseName;
+                    document.getElementById('houseResult').style.display = 'block';
+                    
+                    // Show remaining count
+                    const countDisplay = document.createElement('p');
+                    countDisplay.className = 'nft-count';
+                    countDisplay.style.cssText = 'color: #00ff00; margin-top: 10px; font-size: 18px;';
+                    countDisplay.textContent = `${count} NFT${count !== 1 ? 's' : ''} remaining in this house`;
+                    
+                    const houseResult = document.getElementById('houseResult');
+                    const existingCount = houseResult.querySelector('.nft-count');
+                    if (existingCount) existingCount.remove();
+                    houseResult.appendChild(countDisplay);
+                }
+            } catch (error) {
+                console.error('Error checking pending claim house:', error);
+                // If we can't check, allow user to try claiming anyway
+            }
+        }
         
     } catch (error) {
         console.error('Error loading rolls:', error);
@@ -766,19 +818,22 @@ function checkPendingClaim() {
             const data = JSON.parse(pendingData);
             
             if (data.user.toLowerCase() === userAddress.toLowerCase()) {
+                // ✅ ESCAPE HATCH: Check if the house still has NFTs
+                console.log('📋 Found pending claim:', data);
+                console.log('🔍 Checking if house still has NFTs...');
+                
+                // We'll check this after connecting to contract
+                // For now, restore the state
                 hasPendingClaim = true;
                 currentHouseName = data.houseName;
                 currentSchool = data.school;
                 currentRollTotal = data.rollTotal;
                 
-                console.log('📋 Restored pending claim:', data);
+                console.log('📋 Restored pending claim (will verify inventory)');
                 
-                showScreen('diceScreen');
-                document.getElementById('chosenSchool').textContent = currentSchool.toUpperCase();
-                document.getElementById('totalValue').textContent = currentRollTotal;
-                document.getElementById('rolledHouseName').textContent = currentHouseName;
-                document.getElementById('houseResult').style.display = 'block';
+                // We'll verify inventory in loadUserRolls
             } else {
+                console.log('📋 Pending claim is for different wallet, clearing');
                 localStorage.removeItem('winions_pending_claim');
             }
         } catch (error) {
@@ -838,7 +893,29 @@ async function claimWinion() {
         
     } catch (error) {
         console.error('Error claiming Winion:', error);
-        showToast('Error claiming Winion. Please try again.', 'error');
+        
+        // ✅ ESCAPE HATCH: If house has no NFTs, clear pending claim
+        if (error.message && error.message.includes('No NFTs available')) {
+            console.error('🚨 ESCAPE HATCH: House has no NFTs!');
+            showToast('❌ This house is sold out!', 'error');
+            showToast('✅ Clearing pending claim so you can roll again...', 'success');
+            
+            // Clear the stuck pending claim
+            hasPendingClaim = false;
+            localStorage.removeItem('winions_pending_claim');
+            currentSchool = null;
+            currentRollTotal = 0;
+            currentHouseName = '';
+            
+            // Go back to rolls screen after 2 seconds
+            setTimeout(() => {
+                showScreen('rollsScreen');
+                document.getElementById('houseResult').style.display = 'none';
+                loadUserRolls();
+            }, 2000);
+        } else {
+            showToast('Error claiming Winion. Please try again.', 'error');
+        }
     }
 }
 
@@ -901,6 +978,27 @@ window.rollDice = rollDice;
 window.claimWinion = claimWinion;
 window.resetToRollsScreen = resetToRollsScreen;
 
+// 🚨 ESCAPE HATCH: Manual function to clear stuck pending claims
+window.clearStuckClaim = function() {
+    console.log('🚨 MANUAL ESCAPE HATCH ACTIVATED');
+    console.log('   Clearing pending claim from localStorage...');
+    
+    localStorage.removeItem('winions_pending_claim');
+    hasPendingClaim = false;
+    currentSchool = null;
+    currentRollTotal = 0;
+    currentHouseName = '';
+    
+    console.log('✅ Pending claim cleared!');
+    console.log('🔄 Reloading page...');
+    
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+    
+    return '✅ Clearing stuck claim and reloading...';
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const connectBtn = document.getElementById('connectButton');
     if (connectBtn) {
@@ -952,5 +1050,9 @@ console.log('🎲 75% Commons + Boosted Rares System Active');
 console.log('🛡️ Roll Validation Active at ALL Checkpoints');
 console.log('📊 School-specific weighted distribution enabled');
 console.log('📚 Ethers.js v5 compatible');
+console.log('');
+console.log('🚨 STUCK WITH PENDING CLAIM? Run this in console:');
+console.log('   clearStuckClaim()');
+console.log('   This will clear the pending claim and reload the page.');
 
 })();
