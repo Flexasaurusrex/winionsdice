@@ -93,111 +93,19 @@ function checkVersion() {
 
 checkVersion();
 
-// 🔥 FOMO COUNTER
+// 🔥 FOMO COUNTER - DISABLED (CORS issues with public RPC)
+// TODO: Re-enable after adding CORS-enabled RPC or using user's wallet provider
 async function loadFomoCounter(isAutoRefresh = false) {
-    try {
-        const fomoCounter = document.getElementById('fomoCounter');
-        if (isAutoRefresh && fomoCounter) {
-            fomoCounter.style.opacity = '0.6';
-            fomoCounter.innerHTML = `
-                <div class="fomo-text" style="font-size: 18px;">
-                    🔄 UPDATING...
-                </div>
-            `;
-        }
-        
-        console.log('🔥 Loading FOMO counter...');
-        
-        const provider = new ethers.providers.JsonRpcProvider('https://eth.llamarpc.com');
-        
-        const contractABI = [
-            "function getHouseInventoryCount(string houseName) view returns (uint256)"
-        ];
-        
-        const contract = new ethers.Contract(
-            CONFIG.DISTRIBUTION_CONTRACT,
-            contractABI,
-            provider
-        );
-        
-        let totalRemaining = 0;
-        const houses = Object.keys(HOUSE_RANGES);
-        
-        for (const houseName of houses) {
-            try {
-                const count = await contract.getHouseInventoryCount(houseName);
-                totalRemaining += Number(count.toString());
-            } catch (error) {
-                console.error(`Error loading ${houseName}:`, error.message);
-            }
-        }
-        
-        console.log(`✅ Total remaining: ${totalRemaining}/666`);
-        
-        if (fomoCounter) {
-            fomoCounter.style.opacity = '1';
-            fomoCounter.innerHTML = `
-                <div class="fomo-text">
-                    ONLY <span class="fomo-number">${totalRemaining}/666</span> REMAINING!
-                </div>
-            `;
-            
-            const timestamp = new Date().toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-            });
-            const timestampEl = document.createElement('div');
-            timestampEl.style.cssText = 'font-size: 12px; color: #666; margin-top: 8px;';
-            timestampEl.textContent = `Last updated: ${timestamp}`;
-            fomoCounter.appendChild(timestampEl);
-        }
-        
-        if (totalRemaining < 100) {
-            fomoCounter.style.borderColor = '#ff0000';
-            fomoCounter.style.background = 'rgba(255, 0, 0, 0.2)';
-            fomoCounter.style.animation = 'pulseFomo 1s ease-in-out infinite';
-        } else if (totalRemaining < 200) {
-            fomoCounter.style.borderColor = '#ff6600';
-            fomoCounter.style.background = 'rgba(255, 102, 0, 0.15)';
-        }
-        
-        if (isAutoRefresh && window.lastFomoCount && window.lastFomoCount > totalRemaining) {
-            const dropped = window.lastFomoCount - totalRemaining;
-            console.log(`🎉 Supply dropped by ${dropped}! Someone just minted!`);
-            
-            fomoCounter.style.animation = 'flashFomo 0.5s ease-in-out';
-            setTimeout(() => {
-                fomoCounter.style.animation = 'pulseFomo 2s ease-in-out infinite';
-            }, 500);
-        }
-        
-        window.lastFomoCount = totalRemaining;
-        
-    } catch (error) {
-        console.error('Error loading FOMO counter:', error);
-        const fomoCounter = document.getElementById('fomoCounter');
-        if (fomoCounter) {
-            fomoCounter.style.opacity = '1';
-            fomoCounter.innerHTML = `
-                <div class="fomo-text" style="font-size: 20px;">
-                    LIMITED SUPPLY - CONNECT TO SEE REMAINING!
-                </div>
-            `;
-        }
-    }
+    console.log('⚠️ FOMO counter disabled - requires CORS-enabled RPC endpoint');
+    // Silently skip loading to prevent console spam
+    return;
 }
 
-window.addEventListener('load', () => {
-    console.log('🚀 Page loaded, initializing FOMO counter...');
-    loadFomoCounter();
-    
-    setInterval(() => {
-        console.log('🔄 Auto-refreshing FOMO counter...');
-        loadFomoCounter(true);
-    }, 30000);
-    
-    console.log('✅ Auto-refresh enabled (every 30 seconds)');
-});
+// Don't auto-load FOMO counter on page load
+// window.addEventListener('load', () => {
+//     loadFomoCounter();
+//     setInterval(() => loadFomoCounter(true), 30000);
+// });
 
 function showScreen(screenId) {
     const screens = ['walletScreen', 'rollsScreen', 'schoolScreen', 'diceScreen'];
