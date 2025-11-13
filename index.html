@@ -23,7 +23,7 @@
     
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Ethers.js v5 (FIXED) -->
+    <!-- Ethers.js v5 -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     
     <!-- Configuration -->
@@ -51,6 +51,11 @@
                 CONNECT WALLET
             </button>
             
+            <!-- 🔥 FOMO COUNTER -->
+            <div class="fomo-counter" id="fomoCounter" style="display: none;">
+                <div class="fomo-text" id="fomoText">LOADING...</div>
+            </div>
+            
             <div id="verificationStatus" class="verification-status"></div>
         </div>
     </div>
@@ -59,6 +64,11 @@
     <div class="container" id="rollsScreen" style="display: none;">
         <h1>YOUR ROLLS</h1>
         <p class="subtitle">Check your available rolls</p>
+        
+        <!-- 🔥 FOMO COUNTER ON ROLLS SCREEN -->
+        <div class="fomo-counter" id="fomoCounterRolls" style="display: block;">
+            <div class="fomo-text" id="fomoTextRolls">LOADING...</div>
+        </div>
         
         <div class="rolls-display">
             <div class="roll-type">
