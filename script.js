@@ -104,9 +104,21 @@ async function loadFomoCounter(isAutoRefresh = false) {
     const fomoDiv2 = document.getElementById('fomoCounterRolls');
     const fomoTextDiv2 = document.getElementById('fomoTextRolls');
     
+    console.log('🔍 FOMO counter elements check:');
+    console.log('   Wallet screen counter:', fomoDiv ? '✅ FOUND' : '❌ MISSING');
+    console.log('   Wallet screen text:', fomoTextDiv ? '✅ FOUND' : '❌ MISSING');
+    console.log('   Rolls screen counter:', fomoDiv2 ? '✅ FOUND' : '❌ MISSING');
+    console.log('   Rolls screen text:', fomoTextDiv2 ? '✅ FOUND' : '❌ MISSING');
+    
+    if (!fomoDiv2 || !fomoTextDiv2) {
+        console.error('❌ CRITICAL: Rolls screen FOMO counter elements not found!');
+        console.error('   Make sure HTML has <div id="fomoCounterRolls"> and <div id="fomoTextRolls">');
+        return;
+    }
+    
     try {
         if (!isAutoRefresh) {
-            console.log('🔥 Loading FOMO counter...');
+            console.log('🔥 Loading FOMO counter - counting NFTs in contract...');
             if (fomoTextDiv) fomoTextDiv.textContent = 'LOADING...';
             if (fomoTextDiv2) fomoTextDiv2.textContent = 'LOADING...';
         }
@@ -118,6 +130,8 @@ async function loadFomoCounter(isAutoRefresh = false) {
             winionsABI,
             provider
         );
+        
+        console.log('📡 Querying contract for NFT ownership...');
         
         // Count NFTs owned by distribution contract
         const contractAddress = CONFIG.DISTRIBUTION_CONTRACT;
@@ -137,8 +151,15 @@ async function loadFomoCounter(isAutoRefresh = false) {
             }
             
             const results = await Promise.all(promises);
-            count += results.filter(owned => owned).length;
+            const batchCount = results.filter(owned => owned).length;
+            count += batchCount;
+            
+            if (!isAutoRefresh) {
+                console.log(`   Checked tokens ${start}-${end}: ${batchCount} NFTs in contract`);
+            }
         }
+        
+        console.log(`✅ FOMO counter complete: ${count} NFTs remaining in contract`);
         
         // HTML content for both counters
         const counterHTML = `
@@ -147,7 +168,7 @@ async function loadFomoCounter(isAutoRefresh = false) {
             <div style="font-size: 18px; color: #ff6b35; margin-top: 5px;">WINIONS LEFT!</div>
         `;
         
-        // Update wallet screen counter
+        // Update wallet screen counter (if it exists)
         if (fomoDiv && fomoTextDiv) {
             fomoDiv.style.display = 'block';
             fomoDiv.style.animation = 'flashFomo 0.5s ease-out';
@@ -155,9 +176,10 @@ async function loadFomoCounter(isAutoRefresh = false) {
             setTimeout(() => {
                 fomoDiv.style.animation = 'pulseFomo 2s ease-in-out infinite';
             }, 500);
+            console.log('✅ Updated wallet screen counter');
         }
         
-        // Update rolls screen counter
+        // Update rolls screen counter (MOST IMPORTANT!)
         if (fomoDiv2 && fomoTextDiv2) {
             fomoDiv2.style.display = 'block';
             fomoDiv2.style.animation = 'flashFomo 0.5s ease-out';
@@ -165,15 +187,15 @@ async function loadFomoCounter(isAutoRefresh = false) {
             setTimeout(() => {
                 fomoDiv2.style.animation = 'pulseFomo 2s ease-in-out infinite';
             }, 500);
+            console.log('✅ Updated rolls screen counter');
         }
         
-        if (!isAutoRefresh) {
-            console.log(`✅ FOMO counter loaded: ${count} NFTs remaining`);
-        }
+        console.log('🎉 FOMO counter update complete!');
         
     } catch (error) {
-        console.error('Error loading FOMO counter:', error);
-        const errorHTML = `<div style="color: #ff4444;">Unable to load count</div>`;
+        console.error('❌ Error loading FOMO counter:', error);
+        console.error('   Error details:', error.message);
+        const errorHTML = `<div style="color: #ff4444; font-size: 14px;">Unable to load count<br>${error.message}</div>`;
         if (fomoTextDiv) fomoTextDiv.innerHTML = errorHTML;
         if (fomoTextDiv2) fomoTextDiv2.innerHTML = errorHTML;
     }
@@ -284,6 +306,16 @@ async function connectWallet() {
         if (!hasPendingClaim) {
             console.log('✅ No pending claim - showing rolls screen');
             showScreen('rollsScreen');
+            
+            // ✅ LOAD FOMO COUNTER AFTER SHOWING ROLLS SCREEN
+            // This ensures the elements are visible and can be updated
+            setTimeout(async () => {
+                console.log('🔥 Loading FOMO counter after screen transition...');
+                await loadFomoCounter();
+                
+                // Set up auto-refresh every 30 seconds
+                setInterval(() => loadFomoCounter(true), 30000);
+            }, 100);
         } else {
             console.log('🔒 Pending claim active - staying on dice screen');
             console.log('   User MUST claim before rolling again!');
