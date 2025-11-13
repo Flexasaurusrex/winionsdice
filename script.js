@@ -283,14 +283,14 @@ async function connectWallet() {
         
         console.log('✅ Distribution is active!');
         
+        console.log('🔍 Checking for pending claims FIRST...');
+        checkPendingClaim();  // ✅ DO THIS FIRST to set hasPendingClaim flag!
+        
         console.log('📥 Loading user rolls...');
-        await loadUserRolls();
+        await loadUserRolls();  // ✅ This will verify pending claim if it exists
         
         console.log('💰 Loading prices...');
         await loadPrices();
-        
-        console.log('🔍 Checking for pending claims...');
-        checkPendingClaim();
         
         console.log('🎉 Connection successful!');
         
@@ -854,8 +854,27 @@ function checkPendingClaim() {
                 document.getElementById('rolledHouseName').textContent = currentHouseName;
                 document.getElementById('houseResult').style.display = 'block';
                 
+                // ✅ CRITICAL: Disable roll button
+                const rollButton = document.getElementById('rollButton');
+                if (rollButton) {
+                    rollButton.disabled = true;
+                    rollButton.textContent = '🚫 CLAIM YOUR WINION FIRST';
+                    console.log('🔒 Roll button DISABLED - user must claim first');
+                }
+                
+                // ✅ CRITICAL: Show spinning number with the result
+                createDiceDisplay();
+                const spinningNumber = document.getElementById('spinningNumber');
+                if (spinningNumber) {
+                    spinningNumber.textContent = currentRollTotal;
+                    spinningNumber.classList.remove('rolling', 'landing');
+                }
+                
                 // We'll verify inventory in loadUserRolls (after contract is ready)
                 console.log('⏳ Will verify house inventory after contract loads...');
+                
+                showToast('🔒 You have an unclaimed Winion!', 'warning');
+                showToast('⚠️ You must claim it before rolling again!', 'warning');
             } else {
                 console.log('📋 Pending claim is for different wallet, clearing');
                 localStorage.removeItem('winions_pending_claim');
@@ -1026,6 +1045,44 @@ window.clearStuckClaim = function() {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // ✅ EARLY CHECK: Look for pending claims before wallet connect
+    const pendingData = localStorage.getItem('winions_pending_claim');
+    if (pendingData) {
+        try {
+            const data = JSON.parse(pendingData);
+            console.log('🚨 PENDING CLAIM DETECTED ON PAGE LOAD!');
+            console.log('   House:', data.houseName);
+            console.log('   Roll:', data.rollTotal);
+            console.log('   User must connect and claim before rolling again!');
+            
+            // Show warning on connect screen
+            const walletScreen = document.getElementById('walletScreen');
+            if (walletScreen) {
+                const warning = document.createElement('div');
+                warning.style.cssText = `
+                    background: rgba(255, 100, 0, 0.2);
+                    border: 2px solid #ff6400;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin: 20px 0;
+                    text-align: center;
+                    animation: pulse 1.5s ease-in-out infinite;
+                `;
+                warning.innerHTML = `
+                    <p style="color: #ff6400; font-weight: bold; font-size: 18px; margin: 0;">
+                        🚨 YOU HAVE AN UNCLAIMED WINION!
+                    </p>
+                    <p style="color: #ffaa00; margin: 10px 0 0 0;">
+                        Connect your wallet to claim it before rolling again
+                    </p>
+                `;
+                walletScreen.insertBefore(warning, walletScreen.querySelector('.gate-content'));
+            }
+        } catch (error) {
+            console.error('Error checking pending claim on load:', error);
+        }
+    }
+    
     const connectBtn = document.getElementById('connectButton');
     if (connectBtn) {
         connectBtn.addEventListener('click', connectWallet);
@@ -1036,6 +1093,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const continueBtn = document.getElementById('continueToSchool');
     if (continueBtn) {
         continueBtn.addEventListener('click', async () => {
+            // 🔒 CRITICAL: Block if pending claim exists
+            if (hasPendingClaim) {
+                showToast('🚨 YOU MUST CLAIM YOUR WINION FIRST!', 'error');
+                showToast('⚠️ Refreshing will not bypass this!', 'warning');
+                console.error('❌ BLOCKED: Cannot continue with unclaimed Winion');
+                return;
+            }
+            
             // ✅ CHECK IF USER HAS ROLLS
             const freeRolls = parseInt(document.getElementById('freeRollsCount').textContent || '0');
             const paidRolls = parseInt(document.getElementById('paidRollsCount').textContent || '0');
