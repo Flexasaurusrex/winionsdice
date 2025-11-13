@@ -258,8 +258,9 @@ async function connectWallet() {
             "function getPrices() view returns (uint256 singlePrice, uint256 threePrice, uint256 fivePrice)",
             "function purchaseRolls(uint256 rollType) payable",
             "function rollForWinion(string school) returns (uint256 rollTotal)",
-            "function claimWinion() returns (uint256 tokenId)",
-            "function getAvailableHouses(uint256 rollTotal) view returns (string[] memory houses)"
+            "function claimWinion(uint256 rollTotal, string houseName) returns (uint256 tokenId)",
+            "function getAvailableHouses(uint256 rollTotal) view returns (string[] memory houses)",
+            "event NFTDistributed(address indexed recipient, uint256 indexed tokenId, string houseName)"
         ];
         
         distributionContract = new ethers.Contract(
@@ -629,7 +630,11 @@ async function claimWinion() {
     try {
         showToast('Claiming your Winion...', 'info');
         
-        const tx = await distributionContract.claimWinion();
+        // ✅ PASS REQUIRED PARAMETERS TO CONTRACT!
+        const tx = await distributionContract.claimWinion(
+            currentRollTotal,
+            currentHouseName
+        );
         
         showToast('Transaction sent! Waiting for confirmation...', 'info');
         
@@ -639,7 +644,7 @@ async function claimWinion() {
         const claimEvent = receipt.logs.find(log => {
             try {
                 const parsed = distributionContract.interface.parseLog(log);
-                return parsed.name === 'WinionClaimed';
+                return parsed.name === 'NFTDistributed';
             } catch {
                 return false;
             }
