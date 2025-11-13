@@ -469,48 +469,90 @@ function createDiceDisplay() {
     }
 }
 
-// 🎲 WEIGHTED DICE ROLL SYSTEM - NEW!
-function generateWeightedRoll(school) {
+// 🎲 WEIGHTED DICE ROLL SYSTEM - WITH INVENTORY CHECK!
+function generateWeightedRoll(school, availableHouses) {
     if (!school || !SCHOOL_WEIGHTS[school]) {
         console.error('Invalid school:', school);
         return Math.floor(Math.random() * 331) + 66;
     }
     
+    if (!availableHouses || Object.keys(availableHouses).length === 0) {
+        console.error('⚠️ No houses available!');
+        return null;
+    }
+    
     const schoolConfig = SCHOOL_WEIGHTS[school];
-    const random = Math.random() * 100; // 0-100
+    const random = Math.random() * 100;
     
     console.log(`🎲 Rolling for school: ${school.toUpperCase()}`);
     console.log(`Random number: ${random.toFixed(2)}%`);
     
-    // 75% chance for commons
-    if (random < schoolConfig.commonsWeight) {
-        const commonHouse = schoolConfig.commons[Math.floor(Math.random() * schoolConfig.commons.length)];
+    // Filter commons to only available houses
+    const availableCommons = schoolConfig.commons.filter(h => availableHouses[h]);
+    
+    // Filter boosted rares to only available houses
+    const availableBoostedRares = {};
+    for (const [houseName, weight] of Object.entries(schoolConfig.boostedRares)) {
+        if (availableHouses[houseName]) {
+            availableBoostedRares[houseName] = weight;
+        }
+    }
+    
+    // Filter other rares to only available houses
+    const availableOtherRares = schoolConfig.otherRares.filter(h => availableHouses[h]);
+    
+    console.log(`📦 Available commons: ${availableCommons.length}/${schoolConfig.commons.length}`);
+    console.log(`📦 Available boosted rares: ${Object.keys(availableBoostedRares).length}/${Object.keys(schoolConfig.boostedRares).length}`);
+    console.log(`📦 Available other rares: ${availableOtherRares.length}/${schoolConfig.otherRares.length}`);
+    
+    // 75% chance for commons (if any available)
+    if (random < schoolConfig.commonsWeight && availableCommons.length > 0) {
+        const commonHouse = availableCommons[Math.floor(Math.random() * availableCommons.length)];
         const range = HOUSE_RANGES[commonHouse];
         const roll = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
         console.log(`✅ COMMON (${random.toFixed(2)}% < 75%): ${commonHouse} - Roll: ${roll}`);
         return roll;
     }
     
-    // Boosted rares: 13.5% total
-    let boostedStart = schoolConfig.commonsWeight;
-    for (const [houseName, weight] of Object.entries(schoolConfig.boostedRares)) {
-        if (random >= boostedStart && random < boostedStart + weight) {
-            const range = HOUSE_RANGES[houseName];
-            const roll = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
-            console.log(`🌟 BOOSTED RARE (${boostedStart.toFixed(2)}% - ${(boostedStart + weight).toFixed(2)}%): ${houseName} - Roll: ${roll}`);
-            return roll;
+    // Boosted rares: 13.5% total (if any available)
+    if (Object.keys(availableBoostedRares).length > 0) {
+        let boostedStart = schoolConfig.commonsWeight;
+        for (const [houseName, weight] of Object.entries(availableBoostedRares)) {
+            if (random >= boostedStart && random < boostedStart + weight) {
+                const range = HOUSE_RANGES[houseName];
+                const roll = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+                console.log(`🌟 BOOSTED RARE (${boostedStart.toFixed(2)}% - ${(boostedStart + weight).toFixed(2)}%): ${houseName} - Roll: ${roll}`);
+                return roll;
+            }
+            boostedStart += weight;
         }
-        boostedStart += weight;
     }
     
-    // Other rares: remaining 11.5%
-    const otherRareHouse = schoolConfig.otherRares[Math.floor(Math.random() * schoolConfig.otherRares.length)];
-    const range = HOUSE_RANGES[otherRareHouse];
-    const roll = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
-    console.log(`💎 OTHER RARE (${boostedStart.toFixed(2)}% - 100%): ${otherRareHouse} - Roll: ${roll}`);
-    return roll;
+    // Other rares: remaining % (if any available)
+    if (availableOtherRares.length > 0) {
+        const otherRareHouse = availableOtherRares[Math.floor(Math.random() * availableOtherRares.length)];
+        const range = HOUSE_RANGES[otherRareHouse];
+        const roll = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+        console.log(`💎 OTHER RARE: ${otherRareHouse} - Roll: ${roll}`);
+        return roll;
+    }
+    
+    // Fallback: If preferred categories empty, pick ANY available house
+    console.warn('⚠️ All preferred categories empty, picking from any available house');
+    const allAvailable = Object.keys(availableHouses);
+    if (allAvailable.length > 0) {
+        const fallbackHouse = allAvailable[Math.floor(Math.random() * allAvailable.length)];
+        const range = HOUSE_RANGES[fallbackHouse];
+        const roll = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+        console.log(`🎲 FALLBACK: ${fallbackHouse} - Roll: ${roll}`);
+        return roll;
+    }
+    
+    console.error('❌ NO HOUSES AVAILABLE AT ALL!');
+    return null;
 }
 
+// Helper to get house from roll
 function getHouseFromRoll(total) {
     for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
         if (total >= range.min && total <= range.max) {
@@ -518,6 +560,45 @@ function getHouseFromRoll(total) {
         }
     }
     return 'Unknown House';
+}
+
+// ✅ NEW: Check which houses have NFTs available
+let availableHousesCache = {};
+let cacheTimestamp = 0;
+const CACHE_DURATION = 30000; // 30 seconds
+
+async function checkAvailableHouses() {
+    // Use cache if recent
+    if (Date.now() - cacheTimestamp < CACHE_DURATION && Object.keys(availableHousesCache).length > 0) {
+        console.log('📦 Using cached house inventory');
+        return availableHousesCache;
+    }
+    
+    console.log('🔍 Checking house inventory from contract...');
+    
+    availableHousesCache = {};
+    
+    for (const houseName of Object.keys(HOUSE_RANGES)) {
+        try {
+            const count = await distributionContract.getHouseInventoryCount(houseName);
+            const countNum = Number(count.toString());
+            
+            if (countNum > 0) {
+                availableHousesCache[houseName] = countNum;
+                console.log(`✅ ${houseName}: ${countNum} NFTs available`);
+            } else {
+                console.log(`❌ ${houseName}: SOLD OUT`);
+            }
+        } catch (error) {
+            console.error(`Error checking ${houseName}:`, error.message);
+        }
+    }
+    
+    cacheTimestamp = Date.now();
+    
+    console.log(`📊 Total houses with NFTs: ${Object.keys(availableHousesCache).length}`);
+    
+    return availableHousesCache;
 }
 
 // ✅ VALIDATION FIX #3 - Roll with contract call + weighted distribution
@@ -549,6 +630,18 @@ async function rollDice() {
     try {
         const rollButton = document.getElementById('rollButton');
         rollButton.disabled = true;
+        rollButton.textContent = '🎲 CHECKING INVENTORY...';
+        
+        // ✅ CHECK WHICH HOUSES HAVE NFTS AVAILABLE
+        const availableHouses = await checkAvailableHouses();
+        
+        if (Object.keys(availableHouses).length === 0) {
+            showToast('❌ No NFTs available in any house! All sold out!', 'error');
+            rollButton.disabled = false;
+            rollButton.textContent = '🎲 ROLL THE DICE 🎲';
+            return;
+        }
+        
         rollButton.textContent = '🎲 ROLLING...';
         
         const spinningNumber = document.getElementById('spinningNumber');
@@ -558,11 +651,30 @@ async function rollDice() {
         console.log(`📊 User has ${totalRolls} rolls available`);
         console.log(`⚠️ Roll will be deducted when claiming, not now`);
         
-        // ✅ USE CLIENT-SIDE WEIGHTED DISTRIBUTION
-        // Roll deduction happens when user claims, not here!
-        const targetTotal = generateWeightedRoll(currentSchool);
+        // ✅ USE CLIENT-SIDE WEIGHTED DISTRIBUTION WITH INVENTORY CHECK
+        const targetTotal = generateWeightedRoll(currentSchool, availableHouses);
+        
+        if (targetTotal === null) {
+            showToast('❌ Could not generate valid roll. Please try again.', 'error');
+            rollButton.disabled = false;
+            rollButton.textContent = '🎲 ROLL THE DICE 🎲';
+            return;
+        }
+        
         currentRollTotal = targetTotal;
-        console.log('🎲 Weighted roll result:', targetTotal);
+        console.log('🎲 Final weighted roll result:', targetTotal);
+        
+        // Verify the house has NFTs
+        const rolledHouse = getHouseFromRoll(targetTotal);
+        if (!availableHouses[rolledHouse]) {
+            console.error(`❌ ERROR: Rolled into ${rolledHouse} but it has no NFTs!`);
+            showToast('❌ Error: Rolled into empty house. Please try again.', 'error');
+            rollButton.disabled = false;
+            rollButton.textContent = '🎲 ROLL THE DICE 🎲';
+            return;
+        }
+        
+        console.log(`✅ Rolled house "${rolledHouse}" has ${availableHouses[rolledHouse]} NFTs available`);
         
         // Animate spinning
         let elapsed = 0;
@@ -613,6 +725,20 @@ function revealHouse(total) {
     
     document.getElementById('rolledHouseName').textContent = currentHouseName;
     document.getElementById('houseResult').style.display = 'block';
+    
+    // Show remaining NFTs if available
+    if (availableHousesCache[currentHouseName]) {
+        const remaining = availableHousesCache[currentHouseName];
+        const countDisplay = document.createElement('p');
+        countDisplay.className = 'nft-count';
+        countDisplay.style.cssText = 'color: #00ff00; margin-top: 10px; font-size: 18px;';
+        countDisplay.textContent = `${remaining} NFT${remaining !== 1 ? 's' : ''} remaining in this house`;
+        
+        const houseResult = document.getElementById('houseResult');
+        const existingCount = houseResult.querySelector('.nft-count');
+        if (existingCount) existingCount.remove();
+        houseResult.appendChild(countDisplay);
+    }
     
     const rollButton = document.getElementById('rollButton');
     rollButton.disabled = true;
