@@ -549,26 +549,20 @@ async function rollDice() {
     try {
         const rollButton = document.getElementById('rollButton');
         rollButton.disabled = true;
-        rollButton.textContent = '🎲 ROLLING ON-CHAIN...';
+        rollButton.textContent = '🎲 ROLLING...';
         
         const spinningNumber = document.getElementById('spinningNumber');
         spinningNumber.classList.add('rolling');
         
-        console.log(`🎲 Calling contract rollForWinion with school: ${currentSchool}`);
-        console.log(`📊 User has ${totalRolls} rolls before this roll`);
+        console.log(`🎲 Rolling with school: ${currentSchool}`);
+        console.log(`📊 User has ${totalRolls} rolls available`);
+        console.log(`⚠️ Roll will be deducted when claiming, not now`);
         
-        // ✅ CALL CONTRACT TO ROLL (deducts roll on-chain)
-        const tx = await distributionContract.rollForWinion(currentSchool);
-        
-        showToast('Rolling on-chain... Please wait!', 'info');
-        
-        const receipt = await tx.wait();
-        console.log('✅ Roll transaction confirmed:', receipt.hash);
-        
-        // Use weighted distribution system
+        // ✅ USE CLIENT-SIDE WEIGHTED DISTRIBUTION
+        // Roll deduction happens when user claims, not here!
         const targetTotal = generateWeightedRoll(currentSchool);
         currentRollTotal = targetTotal;
-        console.log('🎲 Final weighted roll total:', targetTotal);
+        console.log('🎲 Weighted roll result:', targetTotal);
         
         // Animate spinning
         let elapsed = 0;
@@ -592,8 +586,6 @@ async function rollDice() {
                     
                     document.getElementById('totalValue').textContent = targetTotal;
                     
-                    loadUserRolls();
-                    
                     setTimeout(() => {
                         revealHouse(targetTotal);
                     }, 500);
@@ -603,12 +595,7 @@ async function rollDice() {
         
     } catch (error) {
         console.error('Error rolling dice:', error);
-        
-        if (error.message && error.message.includes('no rolls available')) {
-            showToast('⚠️ You don\'t have any rolls available!', 'error');
-        } else {
-            showToast('Error rolling dice. Please try again.', 'error');
-        }
+        showToast('Error rolling dice. Please try again.', 'error');
         
         const rollButton = document.getElementById('rollButton');
         rollButton.disabled = false;
@@ -679,6 +666,10 @@ async function claimWinion() {
     try {
         showToast('Claiming your Winion...', 'info');
         
+        console.log('🎫 Claiming Winion - this will deduct 1 roll from your balance');
+        console.log(`   Roll Total: ${currentRollTotal}`);
+        console.log(`   House: ${currentHouseName}`);
+        
         const tx = await distributionContract.claimWinion(
             currentRollTotal,
             currentHouseName
@@ -687,6 +678,8 @@ async function claimWinion() {
         showToast('Transaction sent! Waiting for confirmation...', 'info');
         
         const receipt = await tx.wait();
+        
+        console.log('✅ Claim successful! Roll has been deducted on-chain.');
         
         const claimEvent = receipt.logs.find(log => {
             try {
