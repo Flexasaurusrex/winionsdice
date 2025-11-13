@@ -930,6 +930,55 @@ async function claimWinion() {
         document.getElementById('claimedRollTotal').textContent = currentRollTotal;
         document.getElementById('etherscanLink').href = `https://etherscan.io/tx/${receipt.hash}`;
         
+        // ✅ HIDE BROKEN IMAGE (we don't need it)
+        const claimedImage = document.getElementById('claimedNFTImage');
+        if (claimedImage) {
+            claimedImage.style.display = 'none';
+        }
+        
+        // ✅ ADD/UPDATE OPENSEA BUTTON
+        let openSeaButton = document.getElementById('openSeaButton');
+        if (!openSeaButton) {
+            openSeaButton = document.createElement('a');
+            openSeaButton.id = 'openSeaButton';
+            openSeaButton.className = 'opensea-button';
+            openSeaButton.target = '_blank';
+            openSeaButton.rel = 'noopener noreferrer';
+            openSeaButton.style.cssText = `
+                display: inline-block;
+                margin: 15px 10px;
+                padding: 12px 24px;
+                background: linear-gradient(135deg, #2081e2 0%, #1868b7 100%);
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 16px;
+                border: 2px solid #2081e2;
+                transition: all 0.3s ease;
+                cursor: pointer;
+            `;
+            openSeaButton.onmouseover = function() {
+                this.style.background = 'linear-gradient(135deg, #1868b7 0%, #145a9e 100%)';
+                this.style.transform = 'scale(1.05)';
+            };
+            openSeaButton.onmouseout = function() {
+                this.style.background = 'linear-gradient(135deg, #2081e2 0%, #1868b7 100%)';
+                this.style.transform = 'scale(1)';
+            };
+            
+            // Insert after etherscan link
+            const etherscanLink = document.getElementById('etherscanLink');
+            if (etherscanLink && etherscanLink.parentNode) {
+                etherscanLink.parentNode.insertBefore(openSeaButton, etherscanLink.nextSibling);
+            }
+        }
+        
+        // Update OpenSea link with token ID
+        openSeaButton.href = `https://opensea.io/assets/ethereum/${CONFIG.WINIONS_NFT_CONTRACT}/${tokenId}`;
+        openSeaButton.textContent = '👀 VIEW ON OPENSEA';
+        openSeaButton.style.display = 'inline-block';
+        
         document.getElementById('successModal').style.display = 'flex';
         
         showToast(`Winion #${tokenId} claimed successfully!`, 'success');
@@ -1044,6 +1093,174 @@ window.clearStuckClaim = function() {
     return '✅ Clearing stuck claim and reloading...';
 };
 
+// 🔍 DEBUG: Check inventory for a specific house
+window.checkHouseInventory = async function(houseName) {
+    if (!distributionContract) {
+        return '❌ Please connect wallet first!';
+    }
+    
+    try {
+        console.log(`🔍 Checking inventory for: ${houseName}`);
+        
+        const count = await distributionContract.getHouseInventoryCount(houseName);
+        const countNum = Number(count.toString());
+        
+        console.log(`📊 ${houseName}: ${countNum} NFTs available`);
+        
+        // Also check cache
+        if (availableHousesCache[houseName]) {
+            const cachedCount = availableHousesCache[houseName];
+            console.log(`💾 Cached count: ${cachedCount}`);
+            
+            if (cachedCount !== countNum) {
+                console.warn('⚠️ CACHE MISMATCH!');
+                console.warn(`   Contract: ${countNum}`);
+                console.warn(`   Cache: ${cachedCount}`);
+            } else {
+                console.log('✅ Cache matches contract');
+            }
+        } else {
+            console.log('❌ House not in cache');
+        }
+        
+        return `${houseName}: ${countNum} NFTs`;
+    } catch (error) {
+        console.error('Error checking house:', error);
+        return `❌ Error: ${error.message}`;
+    }
+};
+
+// 🔍 DEBUG: Check ALL houses inventory
+window.checkAllHouses = async function() {
+    if (!distributionContract) {
+        return '❌ Please connect wallet first!';
+    }
+    
+    console.log('🔍 Checking ALL 13 houses...');
+    console.log('═══════════════════════════════════════');
+    
+    const results = {};
+    let totalNFTs = 0;
+    
+    for (const [houseName, range] of Object.entries(HOUSE_RANGES)) {
+        try {
+            const count = await distributionContract.getHouseInventoryCount(houseName);
+            const countNum = Number(count.toString());
+            results[houseName] = countNum;
+            totalNFTs += countNum;
+            
+            const status = countNum > 0 ? '✅' : '❌';
+            const cached = availableHousesCache[houseName] || 'not cached';
+            
+            console.log(`${status} ${houseName.padEnd(25)} ${countNum} NFTs (cached: ${cached})`);
+        } catch (error) {
+            console.error(`❌ ${houseName}: Error - ${error.message}`);
+            results[houseName] = 'ERROR';
+        }
+    }
+    
+    console.log('═══════════════════════════════════════');
+    console.log(`📊 TOTAL NFTS REMAINING: ${totalNFTs}/666`);
+    console.log('');
+    
+    // Compare with cache
+    console.log('💾 CACHE STATUS:');
+    const cacheKeys = Object.keys(availableHousesCache);
+    console.log(`   Houses in cache: ${cacheKeys.length}`);
+    console.log(`   Cache age: ${Date.now() - cacheTimestamp}ms`);
+    
+    if (cacheKeys.length !== Object.keys(results).filter(k => results[k] > 0).length) {
+        console.warn('⚠️ Cache may be stale or incorrect!');
+    } else {
+        console.log('✅ Cache appears accurate');
+    }
+    
+    return results;
+};
+
+// 🔍 DEBUG: Force refresh cache
+window.refreshCache = async function() {
+    if (!distributionContract) {
+        return '❌ Please connect wallet first!';
+    }
+    
+    console.log('🔄 FORCING CACHE REFRESH...');
+    
+    // Clear cache
+    availableHousesCache = {};
+    cacheTimestamp = 0;
+    
+    // Reload
+    const results = await checkAvailableHouses();
+    
+    console.log('✅ Cache refreshed!');
+    console.log(`   Houses with NFTs: ${Object.keys(results).length}`);
+    
+    return results;
+};
+
+// 🔍 DEBUG: See cache contents
+window.viewCache = function() {
+    console.log('💾 CURRENT CACHE:');
+    console.log('═══════════════════════════════════════');
+    
+    if (Object.keys(availableHousesCache).length === 0) {
+        console.log('❌ Cache is empty');
+    } else {
+        for (const [house, count] of Object.entries(availableHousesCache)) {
+            console.log(`   ${house.padEnd(25)} ${count} NFTs`);
+        }
+    }
+    
+    const age = Date.now() - cacheTimestamp;
+    const ageSeconds = (age / 1000).toFixed(1);
+    
+    console.log('═══════════════════════════════════════');
+    console.log(`Cache age: ${ageSeconds}s (expires after 30s)`);
+    console.log(`Cache timestamp: ${new Date(cacheTimestamp).toLocaleTimeString()}`);
+    
+    return availableHousesCache;
+};
+
+// 🔍 DEBUG: Test weighted roll for a school (doesn't save)
+window.testWeightedRoll = async function(school, times = 10) {
+    if (!distributionContract) {
+        return '❌ Please connect wallet first!';
+    }
+    
+    console.log(`🎲 Testing weighted rolls for: ${school.toUpperCase()}`);
+    console.log(`   Rolling ${times} times...`);
+    console.log('═══════════════════════════════════════');
+    
+    // Get fresh inventory
+    const houses = await checkAvailableHouses();
+    
+    const results = {};
+    
+    for (let i = 0; i < times; i++) {
+        const roll = generateWeightedRoll(school, houses);
+        const house = getHouseFromRoll(roll);
+        
+        results[house] = (results[house] || 0) + 1;
+    }
+    
+    console.log('');
+    console.log('📊 RESULTS:');
+    
+    // Sort by count
+    const sorted = Object.entries(results).sort((a, b) => b[1] - a[1]);
+    
+    for (const [house, count] of sorted) {
+        const percent = ((count / times) * 100).toFixed(1);
+        const bar = '█'.repeat(Math.round(count / times * 50));
+        console.log(`${house.padEnd(25)} ${count.toString().padStart(3)} (${percent}%) ${bar}`);
+    }
+    
+    console.log('═══════════════════════════════════════');
+    
+    return results;
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // ✅ EARLY CHECK: Look for pending claims before wallet connect
     const pendingData = localStorage.getItem('winions_pending_claim');
@@ -1142,8 +1359,14 @@ console.log('🛡️ Roll Validation Active at ALL Checkpoints');
 console.log('📊 School-specific weighted distribution enabled');
 console.log('📚 Ethers.js v5 compatible');
 console.log('');
-console.log('🚨 STUCK WITH PENDING CLAIM? Run this in console:');
+console.log('🔍 DEBUG FUNCTIONS AVAILABLE:');
+console.log('   checkHouseInventory("House of Havoc") - Check specific house');
+console.log('   checkAllHouses() - Check all 13 houses');
+console.log('   viewCache() - View cached inventory');
+console.log('   refreshCache() - Force cache refresh from contract');
+console.log('   testWeightedRoll("anarchy", 100) - Test distribution');
+console.log('');
+console.log('🚨 STUCK WITH PENDING CLAIM? Run:');
 console.log('   clearStuckClaim()');
-console.log('   This will clear the pending claim and reload the page.');
 
 })();
